@@ -1,0 +1,414 @@
+-- ============================================================
+--  Tab_Platform.lua  |  Platform Spawner + Floating HUD
+-- ============================================================
+
+local RunService   = game:GetService("RunService")
+local UserInputSvc = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui      = game:GetService("CoreGui")
+local Players      = game:GetService("Players")
+local player       = Players.LocalPlayer
+
+local screenGui   = nil
+local panel       = nil
+local scrollFrame = nil
+
+for _ = 1, 100 do
+    screenGui   = CoreGui:FindFirstChild("ESPGui")
+    panel       = screenGui and screenGui:FindFirstChild("Panel")
+    scrollFrame = panel and panel:FindFirstChild("ScrollPlatform")
+    if scrollFrame then break end
+    task.wait(0.1)
+end
+
+if not scrollFrame then
+    warn("[Tab_Platform.lua] ScrollPlatform not found after 10s")
+else
+    task.wait(0.3)
+end
+
+-- ============================================================
+--  HELPERS
+-- ============================================================
+local function makeCorner(p, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8); c.Parent = p
+end
+local function makeStroke(p, col, th, trans)
+    local s = Instance.new("UIStroke")
+    s.Color = col or Color3.fromRGB(60,60,90)
+    s.Thickness = th or 1
+    s.Transparency = trans or 0
+    s.Parent = p
+end
+
+local WHITE = Color3.fromRGB(255,255,255)
+
+local function makeHeader(parent, txt, order)
+    local f = Instance.new("Frame")
+    f.Size             = UDim2.new(1,-4,0,24)
+    f.BackgroundTransparency = 1
+    f.LayoutOrder      = order
+    f.Parent           = parent
+
+    local accent = Instance.new("Frame")
+    accent.Size             = UDim2.new(0,3,0,14)
+    accent.Position         = UDim2.new(0,2,0.5,-7)
+    accent.BackgroundColor3 = Color3.fromRGB(100,120,255)
+    accent.BorderSizePixel  = 0
+    accent.Parent           = f
+    makeCorner(accent,2)
+
+    local l = Instance.new("TextLabel")
+    l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
+    l.BackgroundTransparency=1; l.Text=txt
+    l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
+    l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
+end
+
+local function makeToggleRow(parent, labelTxt, pillColor, order, onToggle)
+    local row = Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,38); row.BackgroundColor3=Color3.fromRGB(18,20,34)
+    row.BorderSizePixel=0; row.LayoutOrder=order; row.Parent=parent
+    makeCorner(row,8); makeStroke(row,Color3.fromRGB(45,45,70),1,0)
+
+    local pill=Instance.new("Frame")
+    pill.Size=UDim2.new(0,5,0,18); pill.Position=UDim2.new(0,9,0.5,-9)
+    pill.BackgroundColor3=pillColor; pill.BorderSizePixel=0; pill.Parent=row
+    makeCorner(pill,3)
+
+    local lbl=Instance.new("TextLabel")
+    lbl.Size=UDim2.new(1,-70,1,0); lbl.Position=UDim2.new(0,20,0,0)
+    lbl.BackgroundTransparency=1; lbl.Text=labelTxt
+    lbl.TextColor3=Color3.fromRGB(210,215,235); lbl.Font=Enum.Font.FredokaOne
+    lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=row
+
+    local swBg=Instance.new("TextButton")
+    swBg.Size=UDim2.new(0,44,0,22); swBg.Position=UDim2.new(1,-52,0.5,-11)
+    swBg.BackgroundColor3=Color3.fromRGB(40,40,65); swBg.BorderSizePixel=0
+    swBg.Text=""; swBg.AutoButtonColor=false; swBg.Parent=row
+    makeCorner(swBg,11); makeStroke(swBg,Color3.fromRGB(60,60,90),1,0)
+
+    local knob=Instance.new("Frame")
+    knob.Size=UDim2.new(0,16,0,16); knob.Position=UDim2.new(0,3,0.5,-8)
+    knob.BackgroundColor3=Color3.fromRGB(140,140,170); knob.BorderSizePixel=0
+    knob.Parent=swBg; makeCorner(knob,8)
+
+    local enabled=false
+    local tweenInfo=TweenInfo.new(0.15,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+    local function refresh()
+        if enabled then
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(60,160,255)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,25,0.5,-8),BackgroundColor3=WHITE}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(16,26,48)}):Play()
+        else
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(40,40,65)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,3,0.5,-8),BackgroundColor3=Color3.fromRGB(140,140,170)}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(18,20,34)}):Play()
+        end
+    end
+    swBg.MouseButton1Click:Connect(function()
+        enabled=not enabled; refresh(); onToggle(enabled)
+    end)
+    refresh()
+    local function setState(val) enabled=val; refresh() end
+    return row, setState
+end
+
+local function makeStepper(parent, labelTxt, defaultVal, order, onFn)
+    local row=Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,36); row.BackgroundColor3=Color3.fromRGB(16,17,30)
+    row.BorderSizePixel=0; row.LayoutOrder=order; row.Parent=parent
+    makeCorner(row,8); makeStroke(row,Color3.fromRGB(40,40,60),1,0)
+
+    local lbl=Instance.new("TextLabel")
+    lbl.Size=UDim2.new(0.55,0,1,0); lbl.Position=UDim2.new(0,10,0,0)
+    lbl.BackgroundTransparency=1; lbl.Text=labelTxt
+    lbl.TextColor3=Color3.fromRGB(170,180,220); lbl.Font=Enum.Font.FredokaOne
+    lbl.TextSize=11; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=row
+
+    local val=defaultVal
+    local minus=Instance.new("TextButton")
+    minus.Size=UDim2.new(0,24,0,24); minus.Position=UDim2.new(0.55,0,0.5,-12)
+    minus.BackgroundColor3=Color3.fromRGB(40,40,70); minus.TextColor3=WHITE
+    minus.Font=Enum.Font.FredokaOne; minus.TextSize=14; minus.Text="−"
+    minus.BorderSizePixel=0; minus.AutoButtonColor=false; minus.Parent=row
+    makeCorner(minus,6)
+
+    local valLbl=Instance.new("TextLabel")
+    valLbl.Size=UDim2.new(0,36,0,24); valLbl.Position=UDim2.new(0.55,28,0.5,-12)
+    valLbl.BackgroundColor3=Color3.fromRGB(22,23,40); valLbl.TextColor3=WHITE
+    valLbl.Font=Enum.Font.FredokaOne; valLbl.TextSize=12; valLbl.Text=tostring(val)
+    valLbl.BorderSizePixel=0; valLbl.TextXAlignment=Enum.TextXAlignment.Center
+    valLbl.Parent=row; makeCorner(valLbl,5)
+    makeStroke(valLbl,Color3.fromRGB(50,50,80),1,0)
+
+    local plus=Instance.new("TextButton")
+    plus.Size=UDim2.new(0,24,0,24); plus.Position=UDim2.new(0.55,68,0.5,-12)
+    plus.BackgroundColor3=Color3.fromRGB(40,40,70); plus.TextColor3=WHITE
+    plus.Font=Enum.Font.FredokaOne; plus.TextSize=14; plus.Text="+"
+    plus.BorderSizePixel=0; plus.AutoButtonColor=false; plus.Parent=row
+    makeCorner(plus,6)
+
+    local function update(d)
+        val=math.max(0.5,math.floor((val+d)*10+0.5)/10)
+        valLbl.Text=tostring(val); pcall(onFn,val)
+    end
+    minus.MouseButton1Click:Connect(function() update(-1) end)
+    plus.MouseButton1Click:Connect(function()  update( 1) end)
+    return row, valLbl
+end
+
+local function makeBtn(parent, txt, color, order, fn)
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,-4,0,34); b.BackgroundColor3=color
+    b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne; b.TextSize=12
+    b.Text=txt; b.BorderSizePixel=0; b.AutoButtonColor=false
+    b.LayoutOrder=order; b.Parent=parent
+    makeCorner(b,8); makeStroke(b,Color3.fromRGB(80,80,120),1,0.4)
+    local grad=Instance.new("UIGradient")
+    grad.Rotation=90; grad.Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180)),
+    }); grad.Transparency=NumberSequence.new({
+        NumberSequenceKeypoint.new(0,0.85),
+        NumberSequenceKeypoint.new(1,0.95),
+    }); grad.Parent=b
+    b.MouseButton1Click:Connect(function() pcall(fn) end)
+    return b
+end
+
+-- ============================================================
+--  STATE
+-- ============================================================
+local platformEnabled = false
+local followEnabled   = false
+local followConn      = nil
+local spawnedParts    = {}
+local partHeight      = 1
+local partSizeX       = 10
+local partSizeY       = 1
+local partSizeZ       = 10
+local noclipEnabled   = false
+local noclipConn      = nil
+
+local setPlaceMode, setFollow, setNoclip
+
+-- ============================================================
+--  PLACE PARTS ON CLICK
+-- ============================================================
+local mouse=player:GetMouse()
+mouse.Button1Down:Connect(function()
+    if not platformEnabled then return end
+    if mouse.Target==nil then return end
+    local hit=mouse.Hit; if not hit then return end
+    local part=Instance.new("Part")
+    part.Name="DW_Platform"; part.Size=Vector3.new(partSizeX,partSizeY,partSizeZ)
+    part.Position=Vector3.new(hit.X,hit.Y+partHeight,hit.Z)
+    part.Anchored=true; part.CanCollide=true
+    part.BrickColor=BrickColor.new("Bright yellow")
+    part.Material=Enum.Material.ForceField
+    part.Transparency=0; part.CastShadow=false; part.Parent=workspace
+    table.insert(spawnedParts,part)
+end)
+
+local function deleteAll()
+    for _,p in ipairs(spawnedParts) do pcall(function() p:Destroy() end) end
+    spawnedParts={}; followEnabled=false
+    if followConn then followConn:Disconnect(); followConn=nil end
+end
+
+local function startFollow()
+    if followConn then followConn:Disconnect() end
+    followConn=RunService.Heartbeat:Connect(function()
+        if not followEnabled then return end
+        pcall(function()
+            local char=player.Character; if not char then return end
+            local hrp=char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+            for _,p in ipairs(spawnedParts) do
+                if p and p.Parent then
+                    p.Position=Vector3.new(hrp.Position.X,p.Position.Y,hrp.Position.Z)
+                end
+            end
+        end)
+    end)
+end
+
+local function startNoclip()
+    if noclipConn then noclipConn:Disconnect() end
+    noclipConn=RunService.Stepped:Connect(function()
+        if not noclipEnabled then return end
+        local char=player.Character; if not char then return end
+        for _,part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide=false end
+        end
+    end)
+end
+
+local function stopNoclip()
+    noclipEnabled=false
+    if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
+    local char=player.Character; if not char then return end
+    for _,part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then part.CanCollide=true end
+    end
+end
+
+-- ============================================================
+--  BUILD MENU TAB
+-- ============================================================
+if scrollFrame then
+    makeHeader(scrollFrame,"  PLACE",1)
+    local _,setPlaceMenuSync
+    local _,setPlaceMenu=makeToggleRow(scrollFrame,"Place Mode",
+        Color3.fromRGB(255,200,60),2,function(on)
+            platformEnabled=on
+            if setPlaceMode then setPlaceMode(on) end
+        end)
+    setPlaceMenuSync=setPlaceMenu
+
+    local _,setFollowMenu=makeToggleRow(scrollFrame,"Follow Player",
+        Color3.fromRGB(60,200,120),3,function(on)
+            followEnabled=on
+            if on then startFollow()
+            else if followConn then followConn:Disconnect(); followConn=nil end end
+            if setFollow then setFollow(on) end
+        end)
+
+    makeHeader(scrollFrame,"  SIZE",4)
+    makeStepper(scrollFrame,"Height",partHeight,5,function(v) partHeight=v end)
+    makeStepper(scrollFrame,"Size X",partSizeX,6,function(v) partSizeX=v end)
+    makeStepper(scrollFrame,"Size Y",partSizeY,7,function(v) partSizeY=v end)
+    makeStepper(scrollFrame,"Size Z",partSizeZ,8,function(v) partSizeZ=v end)
+
+    makeHeader(scrollFrame,"  ACTIONS",9)
+    makeBtn(scrollFrame,"🗑  Delete All Parts",Color3.fromRGB(100,30,30),10,deleteAll)
+
+    makeHeader(scrollFrame,"  NOCLIP",11)
+    local _,setNoclipMenu=makeToggleRow(scrollFrame,"No Collision",
+        Color3.fromRGB(255,80,80),12,function(on)
+            noclipEnabled=on
+            if on then startNoclip() else stopNoclip() end
+            if setNoclip then setNoclip(on) end
+        end)
+
+    makeHeader(scrollFrame,"  HUD",13)
+    makeBtn(scrollFrame,"📌 Activate Platform HUD",Color3.fromRGB(40,60,120),14,function() buildHUD() end)
+
+    setPlaceMode=function(val) setPlaceMenuSync(val) end
+    setFollow=function(val) setFollowMenu(val) end
+    setNoclip=function(val) noclipEnabled=val; setNoclipMenu(val) end
+end
+
+-- ============================================================
+--  FLOATING PLATFORM HUD
+-- ============================================================
+local hudFrame=nil
+local hudVisible=false
+local hudSetPlace,hudSetFollow
+
+function buildHUD()
+    if hudFrame then hudFrame.Visible=not hudFrame.Visible; hudVisible=hudFrame.Visible; return end
+
+    hudFrame=Instance.new("Frame")
+    hudFrame.Name="PlatformHUD"; hudFrame.Size=UDim2.new(0,190,0,10)
+    hudFrame.Position=UDim2.new(0,4,0,8); hudFrame.BackgroundColor3=Color3.fromRGB(12,12,20)
+    hudFrame.BorderSizePixel=0; hudFrame.Visible=true; hudFrame.Parent=screenGui
+    makeCorner(hudFrame,8); makeStroke(hudFrame,Color3.fromRGB(55,55,100),1.2,0)
+
+    local hdr=Instance.new("Frame")
+    hdr.Size=UDim2.new(1,0,0,24); hdr.BackgroundColor3=Color3.fromRGB(20,20,36)
+    hdr.BorderSizePixel=0; hdr.Parent=hudFrame; makeCorner(hdr,8)
+    local hdrPatch=Instance.new("Frame"); hdrPatch.Size=UDim2.new(1,0,0.5,0)
+    hdrPatch.Position=UDim2.new(0,0,0.5,0); hdrPatch.BackgroundColor3=Color3.fromRGB(20,20,36)
+    hdrPatch.BorderSizePixel=0; hdrPatch.Parent=hdr
+    local hdrLbl=Instance.new("TextLabel"); hdrLbl.Size=UDim2.new(1,-8,1,0)
+    hdrLbl.Position=UDim2.new(0,8,0,0); hdrLbl.BackgroundTransparency=1
+    hdrLbl.Text="🟡 Platform"; hdrLbl.TextColor3=Color3.fromRGB(255,200,60)
+    hdrLbl.Font=Enum.Font.FredokaOne; hdrLbl.TextSize=12
+    hdrLbl.TextXAlignment=Enum.TextXAlignment.Left; hdrLbl.Parent=hdr
+
+    local body=Instance.new("Frame")
+    body.Size=UDim2.new(1,-10,0,0); body.Position=UDim2.new(0,5,0,26)
+    body.BackgroundTransparency=1; body.Parent=hudFrame
+    local bLayout=Instance.new("UIListLayout")
+    bLayout.SortOrder=Enum.SortOrder.LayoutOrder
+    bLayout.Padding=UDim.new(0,4); bLayout.Parent=body
+
+    local function makeHudToggle(txt, color, order, onFn)
+        local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,26)
+        b.BackgroundColor3=color; b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne; b.TextSize=11
+        b.Text=txt.." OFF"; b.BorderSizePixel=0; b.AutoButtonColor=false
+        b.LayoutOrder=order; b.Parent=body; makeCorner(b,6)
+        makeStroke(b,Color3.fromRGB(80,80,120),1,0.5)
+        local on=false
+        local function setBtn(val)
+            on=val; b.Text=txt..(on and " ON" or " OFF")
+            b.BackgroundColor3=on and Color3.fromRGB(30,100,50) or color
+        end
+        b.MouseButton1Click:Connect(function() on=not on; setBtn(on); onFn(on) end)
+        return b, setBtn
+    end
+
+    local _,hudSetPlaceBtn=makeHudToggle("⬛ Place Mode",Color3.fromRGB(80,60,10),1,function(on)
+        platformEnabled=on; if setPlaceMode then setPlaceMode(on) end
+    end)
+    hudSetPlace=function(val) hudSetPlaceBtn(val) end
+
+    local _,hudSetFollowBtn=makeHudToggle("🟢 Follow Player",Color3.fromRGB(20,70,35),2,function(on)
+        followEnabled=on
+        if on then startFollow()
+        else if followConn then followConn:Disconnect(); followConn=nil end end
+        if setFollow then setFollow(on) end
+    end)
+    hudSetFollow=function(val) hudSetFollowBtn(val) end
+
+    local _,hudSetNoclipBtn=makeHudToggle("🔴 No Collision",Color3.fromRGB(80,20,20),3,function(on)
+        noclipEnabled=on
+        if on then startNoclip() else stopNoclip() end
+        if setNoclip then setNoclip(on) end
+    end)
+
+    local _,hudHeightLbl=makeStepper(body,"Height",partHeight,4,function(v) partHeight=v end)
+
+    local delBtn=Instance.new("TextButton"); delBtn.Size=UDim2.new(1,0,0,26)
+    delBtn.BackgroundColor3=Color3.fromRGB(100,30,30); delBtn.TextColor3=WHITE
+    delBtn.Font=Enum.Font.FredokaOne; delBtn.TextSize=11
+    delBtn.Text="🗑 Delete All Parts"; delBtn.BorderSizePixel=0
+    delBtn.AutoButtonColor=false; delBtn.LayoutOrder=5; delBtn.Parent=body
+    makeCorner(delBtn,6); makeStroke(delBtn,Color3.fromRGB(150,50,50),1,0.4)
+    delBtn.MouseButton1Click:Connect(function()
+        deleteAll()
+        if hudSetPlace  then hudSetPlace(false)  end
+        if hudSetFollow then hudSetFollow(false)  end
+        if setPlaceMode then setPlaceMode(false)  end
+        if setFollow    then setFollow(false)     end
+    end)
+
+    bLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local h=bLayout.AbsoluteContentSize.Y
+        body.Size=UDim2.new(1,-10,0,h); hudFrame.Size=UDim2.new(0,190,0,26+h+8)
+    end)
+
+    local drag,ds,ps=false
+    hdr.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or
+           i.UserInputType==Enum.UserInputType.Touch then
+            drag=true; ds=i.Position; ps=hudFrame.Position end end)
+    UserInputSvc.InputChanged:Connect(function(i)
+        if not drag then return end
+        if i.UserInputType==Enum.UserInputType.MouseMovement or
+           i.UserInputType==Enum.UserInputType.Touch then
+            local d=i.Position-ds
+            hudFrame.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,ps.Y.Scale,ps.Y.Offset+d.Y) end end)
+    UserInputSvc.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or
+           i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+
+    setPlaceMode=function(val) platformEnabled=val; hudSetPlaceBtn(val) end
+    setFollow=function(val)    followEnabled=val;   hudSetFollowBtn(val) end
+    setNoclip=function(val)    noclipEnabled=val;   hudSetNoclipBtn(val) end
+    hudVisible=true
+end
+
+print("[Tab_Platform] Loaded.")
