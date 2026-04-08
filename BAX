@@ -1,0 +1,319 @@
+-- ============================================================
+--  Tab_Bax.lua  |  Ad Blocker + Freshener
+-- ============================================================
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting   = game:GetService("Lighting")
+local CoreGui    = game:GetService("CoreGui")
+local Players    = game:GetService("Players")
+local player     = Players.LocalPlayer
+
+local _gui=nil; local _panel=nil; local _scroll=nil; local _waited=0
+repeat
+    _gui=CoreGui:FindFirstChild("ESPGui")
+    _panel=_gui and _gui:FindFirstChild("Panel")
+    _scroll=_panel and _panel:FindFirstChild("ScrollSC")
+    if not _scroll then task.wait(0.1); _waited=_waited+0.1 end
+until _scroll or _waited>=20
+local screenGui=_gui; local panel=_panel; local scrollFrame=_scroll
+
+-- ============================================================
+--  HELPERS
+-- ============================================================
+local function makeCorner(p, r)
+    local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p
+end
+local function makeStroke(p, col, th, trans)
+    local s=Instance.new("UIStroke")
+    s.Color=col or Color3.fromRGB(60,60,90); s.Thickness=th or 1
+    s.Transparency=trans or 0; s.Parent=p
+end
+local WHITE=Color3.fromRGB(255,255,255)
+
+local function makeHeader(txt, order)
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,-4,0,24); f.BackgroundTransparency=1
+    f.LayoutOrder=order; f.Parent=scrollFrame
+    local accent=Instance.new("Frame")
+    accent.Size=UDim2.new(0,3,0,14); accent.Position=UDim2.new(0,2,0.5,-7)
+    accent.BackgroundColor3=Color3.fromRGB(100,120,255); accent.BorderSizePixel=0
+    accent.Parent=f; makeCorner(accent,2)
+    local l=Instance.new("TextLabel")
+    l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
+    l.BackgroundTransparency=1; l.Text=txt
+    l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
+    l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
+end
+
+local function makeToggleRow(labelTxt, pillColor, order, onToggle)
+    local row=Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,38); row.BackgroundColor3=Color3.fromRGB(18,20,34)
+    row.BorderSizePixel=0; row.LayoutOrder=order; row.Parent=scrollFrame
+    makeCorner(row,8); makeStroke(row,Color3.fromRGB(45,45,70),1,0)
+
+    local pill=Instance.new("Frame")
+    pill.Size=UDim2.new(0,5,0,18); pill.Position=UDim2.new(0,9,0.5,-9)
+    pill.BackgroundColor3=pillColor; pill.BorderSizePixel=0; pill.Parent=row
+    makeCorner(pill,3)
+
+    local lbl=Instance.new("TextLabel")
+    lbl.Size=UDim2.new(1,-70,1,0); lbl.Position=UDim2.new(0,20,0,0)
+    lbl.BackgroundTransparency=1; lbl.Text=labelTxt
+    lbl.TextColor3=Color3.fromRGB(210,215,235); lbl.Font=Enum.Font.FredokaOne
+    lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=row
+
+    local swBg=Instance.new("TextButton")
+    swBg.Size=UDim2.new(0,44,0,22); swBg.Position=UDim2.new(1,-52,0.5,-11)
+    swBg.BackgroundColor3=Color3.fromRGB(40,40,65); swBg.BorderSizePixel=0
+    swBg.Text=""; swBg.AutoButtonColor=false; swBg.Parent=row
+    makeCorner(swBg,11); makeStroke(swBg,Color3.fromRGB(60,60,90),1,0)
+
+    local knob=Instance.new("Frame")
+    knob.Size=UDim2.new(0,16,0,16); knob.Position=UDim2.new(0,3,0.5,-8)
+    knob.BackgroundColor3=Color3.fromRGB(140,140,170); knob.BorderSizePixel=0
+    knob.Parent=swBg; makeCorner(knob,8)
+
+    local enabled=false
+    local tweenInfo=TweenInfo.new(0.15,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+    local function refresh()
+        if enabled then
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(60,160,255)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,25,0.5,-8),BackgroundColor3=WHITE}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(16,26,48)}):Play()
+        else
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(40,40,65)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,3,0.5,-8),BackgroundColor3=Color3.fromRGB(140,140,170)}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(18,20,34)}):Play()
+        end
+    end
+    swBg.MouseButton1Click:Connect(function()
+        enabled=not enabled; refresh(); onToggle(enabled)
+    end)
+    refresh()
+    return row
+end
+
+-- ============================================================
+--  BAX MESSAGE POPUP
+-- ============================================================
+local function showBaxMsg(msg)
+    pcall(function()
+        local ex=CoreGui:FindFirstChild("BaxMsgGui")
+        if ex then ex:Destroy() end
+        local jGui=Instance.new("ScreenGui")
+        jGui.Name="BaxMsgGui"; jGui.ResetOnSpawn=false
+        jGui.DisplayOrder=9998; jGui.IgnoreGuiInset=true; jGui.Parent=CoreGui
+        local jf=Instance.new("Frame")
+        jf.Size=UDim2.new(0,300,0,65)
+        jf.Position=UDim2.new(0.5,-150,1,10)
+        jf.BackgroundColor3=Color3.fromRGB(18,18,26)
+        jf.BorderSizePixel=0; jf.Parent=jGui
+        makeCorner(jf,10); makeStroke(jf,Color3.fromRGB(80,80,110),1.5,0)
+        local jb=Instance.new("Frame"); jb.Size=UDim2.new(0,4,1,-10)
+        jb.Position=UDim2.new(0,6,0,5); jb.BackgroundColor3=Color3.fromRGB(100,120,255)
+        jb.BorderSizePixel=0; jb.Parent=jf; makeCorner(jb,4)
+        local jn=Instance.new("TextLabel"); jn.Size=UDim2.new(1,-20,0,18)
+        jn.Position=UDim2.new(0,16,0,5); jn.BackgroundTransparency=1; jn.Text="Bax"
+        jn.TextColor3=Color3.fromRGB(160,170,220); jn.Font=Enum.Font.FredokaOne
+        jn.TextSize=12; jn.TextXAlignment=Enum.TextXAlignment.Left; jn.Parent=jf
+        local jm=Instance.new("TextLabel"); jm.Size=UDim2.new(1,-20,0,36)
+        jm.Position=UDim2.new(0,16,0,24); jm.BackgroundTransparency=1; jm.Text=msg
+        jm.TextColor3=Color3.fromRGB(210,215,240); jm.Font=Enum.Font.FredokaOne
+        jm.TextSize=11; jm.TextXAlignment=Enum.TextXAlignment.Left
+        jm.TextYAlignment=Enum.TextYAlignment.Top; jm.TextWrapped=true; jm.Parent=jf
+        local ts=game:GetService("TweenService")
+        ts:Create(jf,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
+            {Position=UDim2.new(0.5,-150,1,-85)}):Play()
+        task.delay(4,function()
+            if jGui and jGui.Parent then
+                ts:Create(jf,TweenInfo.new(0.4),{Position=UDim2.new(0.5,-150,1,10)}):Play()
+                task.delay(0.4,function() pcall(function() jGui:Destroy() end) end)
+            end
+        end)
+    end)
+end
+
+-- ============================================================
+--  AD BLOCKER
+-- ============================================================
+local adBlockEnabled=false; local adBlockConns={}
+
+local function stopAdBlock()
+    for _,c in ipairs(adBlockConns) do pcall(function() c:Disconnect() end) end
+    adBlockConns={}
+end
+
+local function startAdBlock()
+    stopAdBlock()
+    local function sweep()
+        local n=0
+        pcall(function()
+            local pg=player:FindFirstChildOfClass("PlayerGui"); if not pg then return end
+            for _,d in ipairs(pg:GetDescendants()) do
+                if d.Name=="TemporaryPopUp" and d:IsA("Frame") then d:Destroy(); n=n+1 end
+            end
+        end)
+        return n
+    end
+    local n=sweep()
+    if n>0 then showBaxMsg("("..n..") Advertisement Found!") end
+    pcall(function()
+        local pg=player:FindFirstChildOfClass("PlayerGui"); if not pg then return end
+        local c=pg.DescendantAdded:Connect(function(d)
+            if not adBlockEnabled then return end
+            if d.Name=="TemporaryPopUp" and d:IsA("Frame") then
+                task.defer(function()
+                    pcall(function() d:Destroy() end)
+                    showBaxMsg("(1) Advertisement Found!")
+                end)
+            end
+        end)
+        table.insert(adBlockConns,c)
+    end)
+end
+
+-- ============================================================
+--  FRESHENER
+-- ============================================================
+local freshenerEnabled=false; local freshenerConns={}
+
+local function stopFreshener()
+    for _,c in ipairs(freshenerConns) do pcall(function() c:Disconnect() end) end
+    freshenerConns={}
+end
+
+local function startFreshener()
+    stopFreshener()
+    pcall(function()
+        local pg=player:FindFirstChildOfClass("PlayerGui"); if not pg then return end
+        for _,c in ipairs(pg:GetChildren()) do
+            if c.Name=="IchorScreen" then c:Destroy() end
+        end
+        local conn=pg.ChildAdded:Connect(function(child)
+            if not freshenerEnabled then return end
+            if child.Name=="IchorScreen" then
+                task.defer(function() pcall(function() child:Destroy() end) end)
+            end
+        end)
+        table.insert(freshenerConns,conn)
+    end)
+end
+
+-- ============================================================
+--  BUILD UI
+-- ============================================================
+if scrollFrame then
+    makeHeader("  BAX FEATURES",1)
+
+    local info=Instance.new("Frame")
+    info.Size=UDim2.new(1,-4,0,46); info.BackgroundColor3=Color3.fromRGB(14,14,22)
+    info.BorderSizePixel=0; info.LayoutOrder=2; info.Parent=scrollFrame
+    makeCorner(info,8); makeStroke(info,Color3.fromRGB(45,45,70),1,0)
+    local infoLbl=Instance.new("TextLabel")
+    infoLbl.Size=UDim2.new(1,-12,1,0); infoLbl.Position=UDim2.new(0,8,0,0)
+    infoLbl.BackgroundTransparency=1
+    infoLbl.Text="Ad Blocker removes TemporaryPopUp ads.\nFreshener removes the IchorScreen effect."
+    infoLbl.TextColor3=Color3.fromRGB(120,125,150); infoLbl.Font=Enum.Font.FredokaOne
+    infoLbl.TextSize=10; infoLbl.TextWrapped=true
+    infoLbl.TextXAlignment=Enum.TextXAlignment.Left
+    infoLbl.TextYAlignment=Enum.TextYAlignment.Center; infoLbl.Parent=info
+
+    makeHeader("  AD BLOCKER",3)
+    makeToggleRow("Ad Blocker by Bax",Color3.fromRGB(80,80,90),4,function(on)
+        adBlockEnabled=on
+        if on then
+            startAdBlock()
+            showBaxMsg("Alright the Ad Blocker is on, so the\nAdvertisements would stop popping up on your screen.")
+        else
+            stopAdBlock()
+            showBaxMsg("Well thanks for using this Feature,\nif you needed? Just turned it on again.")
+        end
+    end)
+
+    makeHeader("  FRESHENER",5)
+    makeToggleRow("Freshener",Color3.fromRGB(60,160,100),6,function(on)
+        freshenerEnabled=on
+        if on then startFreshener() else stopFreshener() end
+    end)
+
+    makeHeader("  LIGHT VISION",7)
+    local brightLoop=nil; local brightDetectNotified=false
+    local origBrightness,origClockTime,origFogEnd,origGlobalShadows,origOutdoorAmbient
+    makeToggleRow("Light Vision",Color3.fromRGB(255,200,60),8,function(on)
+        if on then
+            origBrightness=Lighting.Brightness; origClockTime=Lighting.ClockTime
+            origFogEnd=Lighting.FogEnd; origGlobalShadows=Lighting.GlobalShadows
+            origOutdoorAmbient=Lighting.OutdoorAmbient
+            Lighting.Brightness=2; Lighting.ClockTime=14
+            Lighting.FogEnd=100000; Lighting.GlobalShadows=false
+            Lighting.OutdoorAmbient=Color3.fromRGB(128,128,128)
+            showBaxMsg("The Feature is on so dont worry about the Blackouts. Except the others though...")
+            brightDetectNotified=false
+            brightLoop=RunService.RenderStepped:Connect(function()
+                if Lighting.FogEnd<100000 or Lighting.GlobalShadows==true or Lighting.Brightness<1.5 then
+                    if not brightDetectNotified then
+                        brightDetectNotified=true; showBaxMsg("No Darkness for you.")
+                        task.delay(5,function() brightDetectNotified=false end)
+                    end
+                end
+                Lighting.Brightness=2; Lighting.ClockTime=14
+                Lighting.FogEnd=100000; Lighting.GlobalShadows=false
+                Lighting.OutdoorAmbient=Color3.fromRGB(128,128,128)
+            end)
+        else
+            if brightLoop then brightLoop:Disconnect(); brightLoop=nil end
+            brightDetectNotified=false
+            Lighting.Brightness=origBrightness or 1; Lighting.ClockTime=origClockTime or 14
+            Lighting.FogEnd=origFogEnd or 10000
+            Lighting.GlobalShadows=origGlobalShadows~=nil and origGlobalShadows or true
+            Lighting.OutdoorAmbient=origOutdoorAmbient or Color3.fromRGB(70,70,70)
+            showBaxMsg("Well good luck there.")
+        end
+    end)
+
+    makeHeader("  POLLEN REMOVAL",9)
+    local pollenEnabled=false; local pollenConns={}
+    local POLLEN_NAMES={
+        "pollenStorm_ceilingHaze","pollenStorm_floorHaze","pollenStorm_intro",
+        "pollenStorm_particles","pollenStorm_screen","SpringFever",
+    }
+    local function sweepPollen()
+        local found=false
+        for _,name in ipairs(POLLEN_NAMES) do
+            local obj=workspace:FindFirstChild(name)
+            if obj then obj:Destroy(); found=true end
+        end
+        return found
+    end
+    local function startPollenRemoval()
+        local found=sweepPollen()
+        if found then showBaxMsg("Alright the Freshener got sucked all the Spring Fever") end
+        local c=workspace.ChildAdded:Connect(function(child)
+            if not pollenEnabled then return end
+            for _,name in ipairs(POLLEN_NAMES) do
+                if child.Name==name then
+                    task.defer(function() pcall(function() child:Destroy() end) end)
+                    showBaxMsg("Alright the Freshener got sucked all the Spring Fever")
+                    break
+                end
+            end
+        end)
+        table.insert(pollenConns,c)
+    end
+    local function stopPollenRemoval()
+        for _,c in ipairs(pollenConns) do pcall(function() c:Disconnect() end) end
+        pollenConns={}
+    end
+    makeToggleRow("Pollen Removal",Color3.fromRGB(100,200,80),10,function(on)
+        pollenEnabled=on
+        if on then
+            startPollenRemoval()
+            showBaxMsg("Alright, i'll hack their System to open their Vents automatically so you couldnt see the particles and smoke from the floor. except the side effects on you.")
+        else
+            stopPollenRemoval(); showBaxMsg("Just dont get high alright?")
+        end
+    end)
+end
+
+print("[Tab_Bax] Loaded.")
