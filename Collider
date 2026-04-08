@@ -1,0 +1,335 @@
+-- ============================================================
+--  Tab_Collider.lua  |  NoClip_Collider + Fog Remove
+-- ============================================================
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting   = game:GetService("Lighting")
+local CoreGui    = game:GetService("CoreGui")
+
+local screenGui=nil; local panel=nil; local scrollFrame=nil
+for _=1,100 do
+    screenGui=CoreGui:FindFirstChild("ESPGui")
+    panel=screenGui and screenGui:FindFirstChild("Panel")
+    scrollFrame=panel and panel:FindFirstChild("ScrollCollider")
+    if scrollFrame then break end
+    task.wait(0.1)
+end
+if not scrollFrame then
+    warn("[Tab_Collider.lua] ScrollCollider not found after 10s")
+else
+    task.wait(0.3)
+end
+
+-- ============================================================
+--  HELPERS
+-- ============================================================
+local function makeCorner(p, r)
+    local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p
+end
+local function makeStroke(p, col, th, trans)
+    local s=Instance.new("UIStroke")
+    s.Color=col or Color3.fromRGB(60,60,90); s.Thickness=th or 1
+    s.Transparency=trans or 0; s.Parent=p
+end
+local WHITE=Color3.fromRGB(255,255,255)
+
+local function makeHeader(txt, order)
+    local f=Instance.new("Frame")
+    f.Size=UDim2.new(1,-4,0,24); f.BackgroundTransparency=1
+    f.LayoutOrder=order; f.Parent=scrollFrame
+    local accent=Instance.new("Frame")
+    accent.Size=UDim2.new(0,3,0,14); accent.Position=UDim2.new(0,2,0.5,-7)
+    accent.BackgroundColor3=Color3.fromRGB(100,120,255); accent.BorderSizePixel=0
+    accent.Parent=f; makeCorner(accent,2)
+    local l=Instance.new("TextLabel")
+    l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
+    l.BackgroundTransparency=1; l.Text=txt
+    l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
+    l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
+end
+
+local function makeToggleRow(labelTxt, pillColor, order, onToggle)
+    local row=Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,38); row.BackgroundColor3=Color3.fromRGB(18,20,34)
+    row.BorderSizePixel=0; row.LayoutOrder=order; row.Parent=scrollFrame
+    makeCorner(row,8); makeStroke(row,Color3.fromRGB(45,45,70),1,0)
+
+    local pill=Instance.new("Frame")
+    pill.Size=UDim2.new(0,5,0,18); pill.Position=UDim2.new(0,9,0.5,-9)
+    pill.BackgroundColor3=pillColor; pill.BorderSizePixel=0; pill.Parent=row
+    makeCorner(pill,3)
+
+    local lbl=Instance.new("TextLabel")
+    lbl.Size=UDim2.new(1,-70,1,0); lbl.Position=UDim2.new(0,20,0,0)
+    lbl.BackgroundTransparency=1; lbl.Text=labelTxt
+    lbl.TextColor3=Color3.fromRGB(210,215,235); lbl.Font=Enum.Font.FredokaOne
+    lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=row
+
+    local swBg=Instance.new("TextButton")
+    swBg.Size=UDim2.new(0,44,0,22); swBg.Position=UDim2.new(1,-52,0.5,-11)
+    swBg.BackgroundColor3=Color3.fromRGB(40,40,65); swBg.BorderSizePixel=0
+    swBg.Text=""; swBg.AutoButtonColor=false; swBg.Parent=row
+    makeCorner(swBg,11); makeStroke(swBg,Color3.fromRGB(60,60,90),1,0)
+
+    local knob=Instance.new("Frame")
+    knob.Size=UDim2.new(0,16,0,16); knob.Position=UDim2.new(0,3,0.5,-8)
+    knob.BackgroundColor3=Color3.fromRGB(140,140,170); knob.BorderSizePixel=0
+    knob.Parent=swBg; makeCorner(knob,8)
+
+    local enabled=false
+    local tweenInfo=TweenInfo.new(0.15,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+    local function refresh()
+        if enabled then
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(60,160,255)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,25,0.5,-8),BackgroundColor3=WHITE}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(16,26,48)}):Play()
+        else
+            TweenService:Create(swBg,tweenInfo,{BackgroundColor3=Color3.fromRGB(40,40,65)}):Play()
+            TweenService:Create(knob,tweenInfo,{Position=UDim2.new(0,3,0.5,-8),BackgroundColor3=Color3.fromRGB(140,140,170)}):Play()
+            TweenService:Create(row,tweenInfo,{BackgroundColor3=Color3.fromRGB(18,20,34)}):Play()
+        end
+    end
+    swBg.MouseButton1Click:Connect(function()
+        enabled=not enabled; refresh(); onToggle(enabled)
+    end)
+    refresh()
+end
+
+local function makeStepper(labelTxt, defaultVal, order, onFn)
+    local row=Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,36); row.BackgroundColor3=Color3.fromRGB(16,17,30)
+    row.BorderSizePixel=0; row.LayoutOrder=order; row.Parent=scrollFrame
+    makeCorner(row,8); makeStroke(row,Color3.fromRGB(40,40,60),1,0)
+
+    local lbl=Instance.new("TextLabel")
+    lbl.Size=UDim2.new(0.55,0,1,0); lbl.Position=UDim2.new(0,10,0,0)
+    lbl.BackgroundTransparency=1; lbl.Text=labelTxt
+    lbl.TextColor3=Color3.fromRGB(170,180,220); lbl.Font=Enum.Font.FredokaOne
+    lbl.TextSize=11; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=row
+
+    local val=defaultVal
+    local minus=Instance.new("TextButton")
+    minus.Size=UDim2.new(0,24,0,24); minus.Position=UDim2.new(0.55,0,0.5,-12)
+    minus.BackgroundColor3=Color3.fromRGB(40,40,70); minus.TextColor3=WHITE
+    minus.Font=Enum.Font.FredokaOne; minus.TextSize=14; minus.Text="−"
+    minus.BorderSizePixel=0; minus.AutoButtonColor=false; minus.Parent=row
+    makeCorner(minus,6)
+
+    local valLbl=Instance.new("TextLabel")
+    valLbl.Size=UDim2.new(0,36,0,24); valLbl.Position=UDim2.new(0.55,28,0.5,-12)
+    valLbl.BackgroundColor3=Color3.fromRGB(22,23,40); valLbl.TextColor3=WHITE
+    valLbl.Font=Enum.Font.FredokaOne; valLbl.TextSize=12; valLbl.Text=tostring(val)
+    valLbl.BorderSizePixel=0; valLbl.TextXAlignment=Enum.TextXAlignment.Center
+    valLbl.Parent=row; makeCorner(valLbl,5); makeStroke(valLbl,Color3.fromRGB(50,50,80),1,0)
+
+    local plus=Instance.new("TextButton")
+    plus.Size=UDim2.new(0,24,0,24); plus.Position=UDim2.new(0.55,68,0.5,-12)
+    plus.BackgroundColor3=Color3.fromRGB(40,40,70); plus.TextColor3=WHITE
+    plus.Font=Enum.Font.FredokaOne; plus.TextSize=14; plus.Text="+"
+    plus.BorderSizePixel=0; plus.AutoButtonColor=false; plus.Parent=row
+    makeCorner(plus,6)
+
+    local function update(d)
+        val=val+d; valLbl.Text=tostring(val); pcall(onFn,val,d)
+    end
+    minus.MouseButton1Click:Connect(function() update(-1) end)
+    plus.MouseButton1Click:Connect(function()  update( 1) end)
+end
+
+-- ============================================================
+--  STATE
+-- ============================================================
+local colliderEnabled=false; local colliderOriginals={}; local colliderSizeOffset=0
+
+local function applyCollider()
+    for _,e in ipairs(colliderOriginals) do
+        pcall(function() e.part.Transparency=e.original end)
+    end
+    colliderOriginals={}
+    if not colliderEnabled then return end
+    for _,obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name=="NoClip_Collider" then
+            table.insert(colliderOriginals,{part=obj,original=obj.Transparency})
+            obj.Transparency=0.95
+        end
+    end
+end
+
+local function applyColliderSize(delta)
+    colliderSizeOffset=colliderSizeOffset+delta
+    pcall(function()
+        for _,obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name=="NoClip_Collider" then
+                obj.Size=Vector3.new(obj.Size.X+delta,obj.Size.Y,obj.Size.Z+delta)
+            end
+        end
+    end)
+end
+
+local lastCheck=0
+RunService.Heartbeat:Connect(function(dt)
+    if not colliderEnabled then return end
+    lastCheck=lastCheck+dt
+    if lastCheck<3 then return end
+    lastCheck=0
+    for _,obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name=="NoClip_Collider" then
+            if obj.Transparency~=0.95 then obj.Transparency=0.95 end
+        end
+    end
+end)
+
+-- ============================================================
+--  BUILD UI
+-- ============================================================
+if scrollFrame then
+    makeHeader("  COLLIDER",1)
+    makeToggleRow("Show Collider",Color3.fromRGB(80,220,120),2,function(on)
+        colliderEnabled=on; applyCollider()
+    end)
+
+    makeHeader("  SIZE",3)
+    makeStepper("Collider Size X/Z",0,4,function(val,delta) applyColliderSize(delta) end)
+
+    makeHeader("  HUD",7)
+    local hudBtn=Instance.new("TextButton")
+    hudBtn.Size=UDim2.new(1,-4,0,34); hudBtn.BackgroundColor3=Color3.fromRGB(40,60,120)
+    hudBtn.TextColor3=WHITE; hudBtn.Font=Enum.Font.FredokaOne; hudBtn.TextSize=12
+    hudBtn.Text="📌 Activate Collider HUD"; hudBtn.BorderSizePixel=0
+    hudBtn.AutoButtonColor=false; hudBtn.LayoutOrder=8; hudBtn.Parent=scrollFrame
+    makeCorner(hudBtn,8); makeStroke(hudBtn,Color3.fromRGB(80,100,180),1,0.4)
+
+    local colliderHud=nil; local colliderHudVisible=false
+
+    hudBtn.MouseButton1Click:Connect(function()
+        if colliderHud then
+            colliderHudVisible=not colliderHudVisible
+            colliderHud.Visible=colliderHudVisible; return
+        end
+
+        colliderHud=Instance.new("Frame")
+        colliderHud.Name="ColliderHUD"; colliderHud.Size=UDim2.new(0,190,0,10)
+        colliderHud.Position=UDim2.new(0,4,0,50)
+        colliderHud.BackgroundColor3=Color3.fromRGB(12,12,20)
+        colliderHud.BorderSizePixel=0; colliderHud.Visible=true
+        colliderHud.Parent=screenGui
+        makeCorner(colliderHud,8); makeStroke(colliderHud,Color3.fromRGB(55,55,100),1.2,0)
+
+        local hdr=Instance.new("Frame"); hdr.Size=UDim2.new(1,0,0,24)
+        hdr.BackgroundColor3=Color3.fromRGB(20,20,36); hdr.BorderSizePixel=0
+        hdr.Parent=colliderHud; makeCorner(hdr,8)
+        local hdrP=Instance.new("Frame"); hdrP.Size=UDim2.new(1,0,0.5,0)
+        hdrP.Position=UDim2.new(0,0,0.5,0); hdrP.BackgroundColor3=Color3.fromRGB(20,20,36)
+        hdrP.BorderSizePixel=0; hdrP.Parent=hdr
+        local hLbl=Instance.new("TextLabel"); hLbl.Size=UDim2.new(1,-8,1,0)
+        hLbl.Position=UDim2.new(0,8,0,0); hLbl.BackgroundTransparency=1
+        hLbl.Text="🧱 Collider"; hLbl.TextColor3=Color3.fromRGB(80,220,120)
+        hLbl.Font=Enum.Font.FredokaOne; hLbl.TextSize=12
+        hLbl.TextXAlignment=Enum.TextXAlignment.Left; hLbl.Parent=hdr
+
+        local body=Instance.new("Frame"); body.Size=UDim2.new(1,-10,0,0)
+        body.Position=UDim2.new(0,5,0,28); body.BackgroundTransparency=1
+        body.Parent=colliderHud
+        local bLayout=Instance.new("UIListLayout")
+        bLayout.SortOrder=Enum.SortOrder.LayoutOrder
+        bLayout.Padding=UDim.new(0,4); bLayout.Parent=body
+
+        local function makeHudToggle(txt, color, order, onFn)
+            local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,26)
+            b.BackgroundColor3=color; b.TextColor3=WHITE
+            b.Font=Enum.Font.FredokaOne; b.TextSize=11
+            b.Text=txt.." OFF"; b.BorderSizePixel=0
+            b.AutoButtonColor=false; b.LayoutOrder=order; b.Parent=body
+            makeCorner(b,6); makeStroke(b,Color3.fromRGB(80,80,120),1,0.5)
+            local on=false
+            local function setBtn(val)
+                on=val; b.Text=txt..(on and " ON" or " OFF")
+                b.BackgroundColor3=on and Color3.fromRGB(30,100,50) or color
+            end
+            b.MouseButton1Click:Connect(function() on=not on; setBtn(on); onFn(on) end)
+            return b, setBtn
+        end
+
+        makeHudToggle("🟢 Show Collider",Color3.fromRGB(25,70,35),1,function(on)
+            colliderEnabled=on; applyCollider()
+        end)
+
+        local szRow=Instance.new("Frame"); szRow.Size=UDim2.new(1,0,0,26)
+        szRow.BackgroundColor3=Color3.fromRGB(16,17,30); szRow.BorderSizePixel=0
+        szRow.LayoutOrder=3; szRow.Parent=body; makeCorner(szRow,6)
+        makeStroke(szRow,Color3.fromRGB(40,40,60),1,0)
+        local szLbl=Instance.new("TextLabel"); szLbl.Size=UDim2.new(0.5,0,1,0)
+        szLbl.Position=UDim2.new(0,6,0,0); szLbl.BackgroundTransparency=1
+        szLbl.Text="Size X/Z"; szLbl.TextColor3=Color3.fromRGB(170,180,220)
+        szLbl.Font=Enum.Font.FredokaOne; szLbl.TextSize=11
+        szLbl.TextXAlignment=Enum.TextXAlignment.Left; szLbl.Parent=szRow
+        local szVal=0
+        local szMinus=Instance.new("TextButton"); szMinus.Size=UDim2.new(0,20,0,20)
+        szMinus.Position=UDim2.new(0.5,0,0.5,-10)
+        szMinus.BackgroundColor3=Color3.fromRGB(40,40,70); szMinus.TextColor3=WHITE
+        szMinus.Font=Enum.Font.FredokaOne; szMinus.TextSize=13; szMinus.Text="−"
+        szMinus.BorderSizePixel=0; szMinus.AutoButtonColor=false; szMinus.Parent=szRow
+        makeCorner(szMinus,4)
+        local szValLbl=Instance.new("TextLabel"); szValLbl.Size=UDim2.new(0,28,0,20)
+        szValLbl.Position=UDim2.new(0.5,24,0.5,-10)
+        szValLbl.BackgroundColor3=Color3.fromRGB(22,23,40); szValLbl.TextColor3=WHITE
+        szValLbl.Font=Enum.Font.FredokaOne; szValLbl.TextSize=11; szValLbl.Text="0"
+        szValLbl.BorderSizePixel=0; szValLbl.TextXAlignment=Enum.TextXAlignment.Center
+        szValLbl.Parent=szRow; makeCorner(szValLbl,4); makeStroke(szValLbl,Color3.fromRGB(50,50,80),1,0)
+        local szPlus=Instance.new("TextButton"); szPlus.Size=UDim2.new(0,20,0,20)
+        szPlus.Position=UDim2.new(0.5,56,0.5,-10)
+        szPlus.BackgroundColor3=Color3.fromRGB(40,40,70); szPlus.TextColor3=WHITE
+        szPlus.Font=Enum.Font.FredokaOne; szPlus.TextSize=13; szPlus.Text="+"
+        szPlus.BorderSizePixel=0; szPlus.AutoButtonColor=false; szPlus.Parent=szRow
+        makeCorner(szPlus,4)
+        local function updateSz(d)
+            szVal=szVal+d; szValLbl.Text=tostring(szVal); applyColliderSize(d)
+        end
+        szMinus.MouseButton1Click:Connect(function() updateSz(-1) end)
+        szPlus.MouseButton1Click:Connect(function()  updateSz( 1) end)
+
+        local ref=Instance.new("TextButton"); ref.Size=UDim2.new(1,0,0,26)
+        ref.BackgroundColor3=Color3.fromRGB(40,60,100); ref.TextColor3=WHITE
+        ref.Font=Enum.Font.FredokaOne; ref.TextSize=11
+        ref.Text="🔄 Refresh"; ref.BorderSizePixel=0
+        ref.AutoButtonColor=false; ref.LayoutOrder=4; ref.Parent=body
+        makeCorner(ref,6); makeStroke(ref,Color3.fromRGB(60,80,140),1,0.4)
+        ref.MouseButton1Click:Connect(function() applyCollider() end)
+
+        bLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            local h2=bLayout.AbsoluteContentSize.Y
+            body.Size=UDim2.new(1,-10,0,h2); colliderHud.Size=UDim2.new(0,190,0,26+h2+8)
+        end)
+
+        local UserInputSvc2=game:GetService("UserInputService")
+        local drag,ds,ps=false
+        hdr.InputBegan:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 or
+               i.UserInputType==Enum.UserInputType.Touch then
+                drag=true; ds=i.Position; ps=colliderHud.Position end end)
+        UserInputSvc2.InputChanged:Connect(function(i)
+            if not drag then return end
+            if i.UserInputType==Enum.UserInputType.MouseMovement or
+               i.UserInputType==Enum.UserInputType.Touch then
+                local d=i.Position-ds
+                colliderHud.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,
+                                               ps.Y.Scale,ps.Y.Offset+d.Y) end end)
+        UserInputSvc2.InputEnded:Connect(function(i)
+            if i.UserInputType==Enum.UserInputType.MouseButton1 or
+               i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+
+        colliderHudVisible=true
+    end)
+
+    makeHeader("  ACTIONS",9)
+    local refreshBtn=Instance.new("TextButton")
+    refreshBtn.Size=UDim2.new(1,-4,0,34); refreshBtn.BackgroundColor3=Color3.fromRGB(40,60,100)
+    refreshBtn.TextColor3=WHITE; refreshBtn.Font=Enum.Font.FredokaOne; refreshBtn.TextSize=12
+    refreshBtn.Text="🔄 Refresh Collider"; refreshBtn.BorderSizePixel=0
+    refreshBtn.AutoButtonColor=false; refreshBtn.LayoutOrder=10; refreshBtn.Parent=scrollFrame
+    makeCorner(refreshBtn,8); makeStroke(refreshBtn,Color3.fromRGB(60,80,140),1,0.4)
+    refreshBtn.MouseButton1Click:Connect(function() applyCollider() end)
+end
+
+print("[Tab_Collider] Loaded.")
