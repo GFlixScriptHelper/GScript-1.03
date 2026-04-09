@@ -571,6 +571,250 @@ local function buildGuideSection()
     end)
 end
 
+
+-- ============================================================
+--  NOTIFY TWISTEDS SYSTEM
+-- ============================================================
+local notifyEnabled   = false
+local activePopups    = {}  -- list of popup frames currently on screen
+local MAX_POPUPS      = 5
+local POPUP_W         = 160
+local POPUP_H         = 70
+local POPUP_PADDING   = 8
+local POPUP_X_SHOWN   = 1  -- scale X when visible (anchored right)
+local POPUP_X_HIDDEN  = 1  -- pushed off right
+local POPUP_OFFSET_X_SHOWN  = -(POPUP_W + 8)
+local POPUP_OFFSET_X_HIDDEN = 20
+
+-- Build headshot ID lookup from MONSTER_GUIDE
+local HEADSHOT_IDS = {}
+for _, m in ipairs(MONSTER_GUIDE) do
+    HEADSHOT_IDS[m.name:lower()] = m.id
+end
+
+local function getHeadshotId(monsterObjName)
+    -- Strip "Twisted" prefix and try to match
+    local stripped = monsterObjName:lower()
+                        :gsub("twisted","")
+                        :gsub("^%s+","")
+                        :gsub("%s+$","")
+    for k, v in pairs(HEADSHOT_IDS) do
+        if k:lower():find(stripped) or stripped:find(k:lower()) then
+            return v
+        end
+    end
+    return "rbxassetid://0"
+end
+
+local function getPopupBaseY()
+    -- Bottom anchor offset for bottom-most popup
+    return -(POPUP_H + 12)
+end
+
+local function repositionPopups()
+    -- Stack upward from bottom-right
+    for i, popup in ipairs(activePopups) do
+        local idx    = #activePopups - i  -- 0 = bottom, higher = up
+        local yOff   = getPopupBaseY() - idx * (POPUP_H + POPUP_PADDING)
+        TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(POPUP_X_SHOWN, POPUP_OFFSET_X_SHOWN, 1, yOff),
+        }):Play()
+    end
+end
+
+local function dismissPopup(popup)
+    -- Slide out to the right
+    local t = TweenService:Create(popup, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = UDim2.new(POPUP_X_HIDDEN, POPUP_OFFSET_X_HIDDEN, popup.Position.Y.Scale, popup.Position.Y.Offset),
+    })
+    t:Play()
+    t.Completed:Connect(function()
+        popup:Destroy()
+    end)
+    -- Remove from table
+    for i, p in ipairs(activePopups) do
+        if p == popup then table.remove(activePopups, i); break end
+    end
+end
+
+local function showNotification(monsterName)
+    if not notifyEnabled then return end
+
+    -- If at max, push oldest out
+    if #activePopups >= MAX_POPUPS then
+        dismissPopup(activePopups[1])
+        task.wait(0.05)
+    end
+
+    local displayName = getDisplayName(monsterName)
+    local headshotId  = getHeadshotId(monsterName)
+
+    -- Build popup (starts off-screen right)
+    local popup = Instance.new("ImageLabel")
+    popup.Name              = "MonsterPopUp"
+    popup.AnchorPoint       = Vector2.new(0, 1)
+    popup.Size              = UDim2.new(0, POPUP_W, 0, POPUP_H)
+    popup.Position          = UDim2.new(POPUP_X_HIDDEN, POPUP_OFFSET_X_HIDDEN, 1, getPopupBaseY())
+    popup.BackgroundColor3  = Color3.fromRGB(255, 255, 255)
+    popup.BorderSizePixel   = 0
+    popup.Image             = "rbxassetid://6794283750"
+    popup.ImageTransparency = 0.89
+    popup.ZIndex            = 100
+    popup.Parent            = screenGui
+
+    local grad = Instance.new("UIGradient")
+    grad.Color    = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 26, 26)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(84, 84, 84)),
+    })
+    grad.Rotation = 90
+    grad.Parent   = popup
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = popup
+
+    makeStroke(popup, Color3.fromRGB(100, 120, 255), 1.2, 0)
+
+    -- Headshot image
+    local charImg = Instance.new("ImageLabel")
+    charImg.Name             = "CharacterImage"
+    charImg.AnchorPoint      = Vector2.new(0.5, 0.5)
+    charImg.BackgroundColor3 = Color3.fromRGB(30, 30, 48)
+    charImg.Position         = UDim2.new(0, 36, 0.5, 0)
+    charImg.Size             = UDim2.new(0, 56, 0, 56)
+    charImg.ZIndex           = 101
+    charImg.Image            = "rbxassetid://" .. headshotId
+    charImg.ScaleType        = Enum.ScaleType.Fit
+    charImg.Parent           = popup
+    local c2 = Instance.new("UICorner"); c2.CornerRadius=UDim.new(0,6); c2.Parent=charImg
+
+    -- "DETECTED!" label
+    local detLbl = Instance.new("TextLabel")
+    detLbl.Name                  = "DetectMessage"
+    detLbl.BackgroundTransparency = 1
+    detLbl.Position              = UDim2.new(0, 72, 0, 8)
+    detLbl.Size                  = UDim2.new(1, -80, 0, 20)
+    detLbl.ZIndex                = 101
+    detLbl.Font                  = Enum.Font.FredokaOne
+    detLbl.Text                  = "DETECTED!"
+    detLbl.TextColor3            = Color3.fromRGB(255, 80, 80)
+    detLbl.TextScaled            = true
+    detLbl.TextStrokeTransparency = 0
+    detLbl.TextWrapped           = true
+    detLbl.Parent                = popup
+
+    -- Monster name label
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Name                  = "MonsterName"
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Position              = UDim2.new(0, 72, 0, 30)
+    nameLbl.Size                  = UDim2.new(1, -80, 0, 32)
+    nameLbl.ZIndex                = 101
+    nameLbl.Font                  = Enum.Font.FredokaOne
+    nameLbl.Text                  = displayName:upper()
+    nameLbl.TextColor3            = Color3.fromRGB(255, 255, 255)
+    nameLbl.TextScaled            = true
+    nameLbl.TextStrokeTransparency = 0
+    nameLbl.TextWrapped           = true
+    nameLbl.TextXAlignment        = Enum.TextXAlignment.Left
+    nameLbl.Parent                = popup
+
+    -- Apply rainbow/pink stroke animation on popup border
+    local stroke = popup:FindFirstChildOfClass("UIStroke")
+    if isRainbow(monsterName) then
+        RunService.Heartbeat:Connect(function(dt)
+            if not popup.Parent then return end
+            if stroke then stroke.Color = Color3.fromHSV((tick()*0.5)%1, 1, 1) end
+        end)
+    elseif isViolet(monsterName) then
+        RunService.Heartbeat:Connect(function(dt)
+            if not popup.Parent then return end
+            local t = math.abs(math.sin(tick()*1.2*math.pi))
+            if stroke then stroke.Color = Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255),t) end
+        end)
+    elseif isSquirm(monsterName) then
+        RunService.Heartbeat:Connect(function(dt)
+            if not popup.Parent then return end
+            local t = math.abs(math.sin(tick()*1.2*math.pi))
+            if stroke then stroke.Color = Color3.fromRGB(255,140,0):Lerp(Color3.fromRGB(255,255,255),t) end
+        end)
+    end
+
+    table.insert(activePopups, popup)
+    repositionPopups()
+
+    -- Slide in
+    TweenService:Create(popup, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(POPUP_X_SHOWN, POPUP_OFFSET_X_SHOWN, 1, getPopupBaseY()),
+    }):Play()
+
+    -- Auto dismiss after 5 seconds
+    task.delay(5, function()
+        if popup and popup.Parent then
+            dismissPopup(popup)
+            repositionPopups()
+        end
+    end)
+end
+
+-- Watch for new monsters spawning in CurrentRoom
+local notifiedMonsters = {}
+
+local function watchForMonsters(map)
+    if not map then return end
+    local mf = map:FindFirstChild("Monsters")
+    if not mf then return end
+
+    -- Notify for already-present monsters on map load
+    for _, obj in ipairs(mf:GetChildren()) do
+        if not notifiedMonsters[obj] then
+            notifiedMonsters[obj] = true
+            task.spawn(function()
+                task.wait(0.5)
+                showNotification(obj.Name)
+            end)
+        end
+    end
+
+    -- Watch for new spawns
+    mf.ChildAdded:Connect(function(child)
+        if not notifyEnabled then return end
+        if notifiedMonsters[child] then return end
+        notifiedMonsters[child] = true
+        task.wait(0.3)
+        showNotification(child.Name)
+    end)
+end
+
+-- Hook into the map watcher
+local _origOnMapArrived = nil
+local function startNotifyWatcher()
+    local cr = workspace:FindFirstChild("CurrentRoom") or workspace:WaitForChild("CurrentRoom", 30)
+    if not cr then return end
+    cr.ChildAdded:Connect(function(child)
+        if child:IsA("Model") then
+            notifiedMonsters = {}
+            task.wait(0.5)
+            watchForMonsters(child)
+        end
+    end)
+    cr.ChildRemoved:Connect(function()
+        notifiedMonsters = {}
+        -- Dismiss all popups
+        for _, p in ipairs(activePopups) do
+            pcall(function() p:Destroy() end)
+        end
+        activePopups = {}
+    end)
+    -- Current map
+    for _, child in ipairs(cr:GetChildren()) do
+        if child:IsA("Model") then
+            watchForMonsters(child); break
+        end
+    end
+end
+
 -- ============================================================
 --  BUILD MENU TAB
 -- ============================================================
@@ -579,6 +823,91 @@ if scrollFrame then
     buildGuideSection()
     makeHeader(scrollFrame,"  MONSTERS IN MAP",1)
     buildMonitorLabel()
+    makeHeader(scrollFrame,"  NOTIFY TWISTEDS",8)
+
+    -- Toggle card for notify
+    local notifyRow = Instance.new("Frame")
+    notifyRow.Size             = UDim2.new(1, -4, 0, 38)
+    notifyRow.BackgroundColor3 = Color3.fromRGB(18, 20, 34)
+    notifyRow.BorderSizePixel  = 0
+    notifyRow.LayoutOrder      = 9
+    notifyRow.Parent           = scrollFrame
+    makeCorner(notifyRow, 8)
+    makeStroke(notifyRow, Color3.fromRGB(45, 45, 70), 1, 0)
+
+    local notifyPill = Instance.new("Frame")
+    notifyPill.Size             = UDim2.new(0, 4, 0, 18)
+    notifyPill.Position         = UDim2.new(0, 6, 0.5, -9)
+    notifyPill.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    notifyPill.BorderSizePixel  = 0
+    notifyPill.Parent           = notifyRow
+    makeCorner(notifyPill, 3)
+
+    local notifySwBg = Instance.new("TextButton")
+    notifySwBg.Size             = UDim2.new(0, 36, 0, 18)
+    notifySwBg.Position         = UDim2.new(1, -42, 0.5, -9)
+    notifySwBg.BackgroundColor3 = Color3.fromRGB(40, 40, 65)
+    notifySwBg.BorderSizePixel  = 0
+    notifySwBg.Text             = ""
+    notifySwBg.AutoButtonColor  = false
+    notifySwBg.Parent           = notifyRow
+    makeCorner(notifySwBg, 9)
+    makeStroke(notifySwBg, Color3.fromRGB(60, 60, 90), 1, 0)
+
+    local notifyKnob = Instance.new("Frame")
+    notifyKnob.Size             = UDim2.new(0, 12, 0, 12)
+    notifyKnob.Position         = UDim2.new(0, 3, 0.5, -6)
+    notifyKnob.BackgroundColor3 = Color3.fromRGB(140, 140, 170)
+    notifyKnob.BorderSizePixel  = 0
+    notifyKnob.Parent           = notifySwBg
+    makeCorner(notifyKnob, 6)
+
+    local notifyLbl = Instance.new("TextLabel")
+    notifyLbl.Size             = UDim2.new(1, -58, 1, 0)
+    notifyLbl.Position         = UDim2.new(0, 16, 0, 0)
+    notifyLbl.BackgroundTransparency = 1
+    notifyLbl.Text             = "🔔 Notify Twisteds"
+    notifyLbl.TextColor3       = Color3.fromRGB(210, 215, 235)
+    notifyLbl.Font             = Enum.Font.FredokaOne
+    notifyLbl.TextSize         = 12
+    notifyLbl.TextXAlignment   = Enum.TextXAlignment.Left
+    notifyLbl.TextWrapped      = true
+    notifyLbl.Parent           = notifyRow
+
+    local notifyTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local notifyOn = false
+    local notifyWatcherStarted = false
+
+    local function refreshNotifySwitch()
+        if notifyOn then
+            TweenService:Create(notifySwBg, notifyTweenInfo, {BackgroundColor3 = Color3.fromRGB(60,160,255)}):Play()
+            TweenService:Create(notifyKnob, notifyTweenInfo, {Position = UDim2.new(0,21,0.5,-6), BackgroundColor3 = Color3.fromRGB(255,255,255)}):Play()
+            TweenService:Create(notifyRow,  notifyTweenInfo, {BackgroundColor3 = Color3.fromRGB(16,26,48)}):Play()
+        else
+            TweenService:Create(notifySwBg, notifyTweenInfo, {BackgroundColor3 = Color3.fromRGB(40,40,65)}):Play()
+            TweenService:Create(notifyKnob, notifyTweenInfo, {Position = UDim2.new(0,3,0.5,-6), BackgroundColor3 = Color3.fromRGB(140,140,170)}):Play()
+            TweenService:Create(notifyRow,  notifyTweenInfo, {BackgroundColor3 = Color3.fromRGB(18,20,34)}):Play()
+        end
+    end
+
+    notifySwBg.MouseButton1Click:Connect(function()
+        notifyOn = not notifyOn
+        notifyEnabled = notifyOn
+        refreshNotifySwitch()
+        if notifyOn and not notifyWatcherStarted then
+            notifyWatcherStarted = true
+            task.spawn(startNotifyWatcher)
+        end
+        if not notifyOn then
+            -- Clear all popups
+            for _, p in ipairs(activePopups) do
+                pcall(function() p:Destroy() end)
+            end
+            activePopups = {}
+        end
+    end)
+    refreshNotifySwitch()
+
     makeHeader(scrollFrame,"  HUD",9)
     makeBtn(scrollFrame,"📌 Map Info + Auto Chat HUD",Color3.fromRGB(40,60,120),10,buildInfoHud)
     makeHeader(scrollFrame,"  AUTO CHAT",11)
