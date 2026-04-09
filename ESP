@@ -644,4 +644,3 @@ if scrollFrame then
 end
 
 watchCurrentRoom()
-print("[Tab_ESP] Loaded.")
