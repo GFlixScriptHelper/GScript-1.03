@@ -13,10 +13,11 @@ local screenGui   = nil
 local panel       = nil
 local scrollFrame = nil
 
+-- FIXED: use recursive search (true) so ScrollESP is found inside ContentArea
 for _ = 1, 100 do
     screenGui   = CoreGui:FindFirstChild("ESPGui")
     panel       = screenGui and screenGui:FindFirstChild("Panel")
-    scrollFrame = panel and panel:FindFirstChild("ScrollESP")
+    scrollFrame = panel and panel:FindFirstChild("ScrollESP", true)
     if scrollFrame then break end
     task.wait(0.1)
 end
