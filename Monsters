@@ -15,17 +15,17 @@ local scrollFrame = nil
 
 -- FIXED: recursive search (true) so ScrollMonsters is found inside ContentArea
 for _ = 1, 100 do
-    screenGui   = CoreGui:FindFirstChild("ESPGui")
-    panel       = screenGui and screenGui:FindFirstChild("Panel")
-    scrollFrame = panel and panel:FindFirstChild("ScrollMonsters", true)
-    if scrollFrame then break end
-    task.wait(0.1)
+	screenGui   = CoreGui:FindFirstChild("ESPGui")
+	panel       = screenGui and screenGui:FindFirstChild("Panel")
+	scrollFrame = panel and panel:FindFirstChild("ScrollMonsters", true)
+	if scrollFrame then break end
+	task.wait(0.1)
 end
 
 if not scrollFrame then
-    warn("[Tab_Monsters.lua] ScrollMonsters not found after 10s")
+	warn("[Tab_Monsters.lua] ScrollMonsters not found after 10s")
 else
-    task.wait(0.3)
+	task.wait(0.3)
 end
 
 -- ============================================================
@@ -34,32 +34,32 @@ end
 local currentMap = nil
 
 local function setupMapWatcher()
-    local cr=workspace:FindFirstChild("CurrentRoom")
-    if not cr then
-        task.spawn(function()
-            cr=workspace:WaitForChild("CurrentRoom",30)
-            if not cr then return end
-            setupMapWatcher()
-        end)
-        return
-    end
-    for _,child in ipairs(cr:GetChildren()) do
-        if child:IsA("Model") then currentMap=child; break end
-    end
-    cr.ChildAdded:Connect(function(child)
-        if child:IsA("Model") then task.wait(0.3); currentMap=child end
-    end)
-    cr.ChildRemoved:Connect(function() currentMap=nil end)
+	local cr=workspace:FindFirstChild("CurrentRoom")
+	if not cr then
+		task.spawn(function()
+			cr=workspace:WaitForChild("CurrentRoom",30)
+			if not cr then return end
+			setupMapWatcher()
+		end)
+		return
+	end
+	for _,child in ipairs(cr:GetChildren()) do
+		if child:IsA("Model") then currentMap=child; break end
+	end
+	cr.ChildAdded:Connect(function(child)
+		if child:IsA("Model") then task.wait(0.3); currentMap=child end
+	end)
+	cr.ChildRemoved:Connect(function() currentMap=nil end)
 end
 
 local function getMap()
-    if currentMap and currentMap.Parent then return currentMap end
-    if _G.ESP_currentMap then
-        local m=_G.ESP_currentMap()
-        if m then currentMap=m end
-        return m
-    end
-    return nil
+	if currentMap and currentMap.Parent then return currentMap end
+	if _G.ESP_currentMap then
+		local m=_G.ESP_currentMap()
+		if m then currentMap=m end
+		return m
+	end
+	return nil
 end
 
 setupMapWatcher()
@@ -68,43 +68,43 @@ setupMapWatcher()
 --  HELPERS
 -- ============================================================
 local function makeCorner(p, r)
-    local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p
+	local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p
 end
 local function makeStroke(p, col, th, trans)
-    local s=Instance.new("UIStroke")
-    s.Color=col or Color3.fromRGB(60,60,90); s.Thickness=th or 1
-    s.Transparency=trans or 0; s.Parent=p
+	local s=Instance.new("UIStroke")
+	s.Color=col or Color3.fromRGB(60,60,90); s.Thickness=th or 1
+	s.Transparency=trans or 0; s.Parent=p
 end
 local WHITE = Color3.fromRGB(255,255,255)
 
 local function makeHeader(parent, txt, order)
-    local f=Instance.new("Frame")
-    f.Size=UDim2.new(1,-4,0,24); f.BackgroundTransparency=1
-    f.LayoutOrder=order; f.Parent=parent
-    local accent=Instance.new("Frame")
-    accent.Size=UDim2.new(0,3,0,14); accent.Position=UDim2.new(0,2,0.5,-7)
-    accent.BackgroundColor3=Color3.fromRGB(100,120,255); accent.BorderSizePixel=0
-    accent.Parent=f; makeCorner(accent,2)
-    local l=Instance.new("TextLabel")
-    l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
-    l.BackgroundTransparency=1; l.Text=txt
-    l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
-    l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
+	local f=Instance.new("Frame")
+	f.Size=UDim2.new(1,-4,0,24); f.BackgroundTransparency=1
+	f.LayoutOrder=order; f.Parent=parent
+	local accent=Instance.new("Frame")
+	accent.Size=UDim2.new(0,3,0,14); accent.Position=UDim2.new(0,2,0.5,-7)
+	accent.BackgroundColor3=Color3.fromRGB(100,120,255); accent.BorderSizePixel=0
+	accent.Parent=f; makeCorner(accent,2)
+	local l=Instance.new("TextLabel")
+	l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
+	l.BackgroundTransparency=1; l.Text=txt
+	l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
+	l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
 end
 
 local function makeBtn(parent, txt, color, order, fn)
-    local b=Instance.new("TextButton")
-    b.Size=UDim2.new(1,-4,0,34); b.BackgroundColor3=color
-    b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
-    b.TextSize=12; b.Text=txt; b.BorderSizePixel=0
-    b.AutoButtonColor=false; b.LayoutOrder=order; b.Parent=parent
-    makeCorner(b,8); makeStroke(b,Color3.fromRGB(80,80,120),1,0.4)
-    local grad=Instance.new("UIGradient"); grad.Rotation=90
-    grad.Transparency=NumberSequence.new({
-        NumberSequenceKeypoint.new(0,0.1), NumberSequenceKeypoint.new(1,0.3)
-    }); grad.Parent=b
-    b.MouseButton1Click:Connect(function() pcall(fn) end)
-    return b
+	local b=Instance.new("TextButton")
+	b.Size=UDim2.new(1,-4,0,34); b.BackgroundColor3=color
+	b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
+	b.TextSize=12; b.Text=txt; b.BorderSizePixel=0
+	b.AutoButtonColor=false; b.LayoutOrder=order; b.Parent=parent
+	makeCorner(b,8); makeStroke(b,Color3.fromRGB(80,80,120),1,0.4)
+	local grad=Instance.new("UIGradient"); grad.Rotation=90
+	grad.Transparency=NumberSequence.new({
+		NumberSequenceKeypoint.new(0,0.1), NumberSequenceKeypoint.new(1,0.3)
+	}); grad.Parent=b
+	b.MouseButton1Click:Connect(function() pcall(fn) end)
+	return b
 end
 
 -- ============================================================
@@ -114,61 +114,61 @@ local RAINBOW_MONSTERS = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble
 local VIOLET_MONSTERS  = {"Bassie","Flyte","Cocoa","Eggson"}
 local SQUIRM_ONLY      = {"Squirm"}
 local MONSTER_NAMES = {
-    Astro="Twisted Astro",Shelly="Twisted Shelly",Vee="Twisted Vee",
-    Dandy="Twisted Dandy",Dyle="Twisted Dyle",Sprout="Twisted Sprout",
-    Pebble="Twisted Pebble",Squirm="Twisted Squirm",
-    Bassie="Twisted Bassie",Flyte="Twisted Flyte",
-    Cocoa="Twisted Cocoa",Eggson="Twisted Eggson",
+	Astro="Twisted Astro",Shelly="Twisted Shelly",Vee="Twisted Vee",
+	Dandy="Twisted Dandy",Dyle="Twisted Dyle",Sprout="Twisted Sprout",
+	Pebble="Twisted Pebble",Squirm="Twisted Squirm",
+	Bassie="Twisted Bassie",Flyte="Twisted Flyte",
+	Cocoa="Twisted Cocoa",Eggson="Twisted Eggson",
 }
 
 local function isRainbow(name)
-    local l=name:lower()
-    for _,k in ipairs(RAINBOW_MONSTERS) do if l:find(k:lower()) then return true end end
-    return false
+	local l=name:lower()
+	for _,k in ipairs(RAINBOW_MONSTERS) do if l:find(k:lower()) then return true end end
+	return false
 end
 local function isViolet(name)
-    local l=name:lower()
-    for _,k in ipairs(VIOLET_MONSTERS) do if l:find(k:lower()) then return true end end
-    return false
+	local l=name:lower()
+	for _,k in ipairs(VIOLET_MONSTERS) do if l:find(k:lower()) then return true end end
+	return false
 end
 local function isSquirm(name)
-    local l=name:lower()
-    for _,k in ipairs(SQUIRM_ONLY) do if l:find(k:lower()) then return true end end
-    return false
+	local l=name:lower()
+	for _,k in ipairs(SQUIRM_ONLY) do if l:find(k:lower()) then return true end end
+	return false
 end
 local function getDisplayName(name)
-    local l=name:lower()
-    for k,d in pairs(MONSTER_NAMES) do if l:find(k:lower()) then return d end end
-    return "Twisted "..name:gsub("[Mm]onster",""):gsub("^%s+",""):gsub("%s+$","")
+	local l=name:lower()
+	for k,d in pairs(MONSTER_NAMES) do if l:find(k:lower()) then return d end end
+	return "Twisted "..name:gsub("[Mm]onster",""):gsub("^%s+",""):gsub("%s+$","")
 end
 local function countItems(match)
-    local map=getMap(); if not map then return 0 end
-    local f=map:FindFirstChild("Items"); if not f then return 0 end
-    local c=0
-    for _,o in ipairs(f:GetChildren()) do
-        if o.Name:lower():find(match:lower()) then c=c+1 end
-    end
-    return c
+	local map=getMap(); if not map then return 0 end
+	local f=map:FindFirstChild("Items"); if not f then return 0 end
+	local c=0
+	for _,o in ipairs(f:GetChildren()) do
+		if o.Name:lower():find(match:lower()) then c=c+1 end
+	end
+	return c
 end
 
 -- ============================================================
 --  SEND CHAT
 -- ============================================================
 local function sendChat(msg)
-    local ok=pcall(function()
-        local rs=game:GetService("ReplicatedStorage")
-        local ce=rs:FindFirstChild("DefaultChatSystemChatEvents")
-        if not ce then error("x") end
-        local sm=ce:FindFirstChild("SayMessageRequest")
-        if not sm then error("x") end
-        sm:FireServer(msg,"All")
-    end)
-    if ok then return end
-    pcall(function()
-        local tcs=game:GetService("TextChatService")
-        local ch=tcs.TextChannels:WaitForChild("RBXGeneral",1)
-        if ch then ch:SendAsync(msg) end
-    end)
+	local ok=pcall(function()
+		local rs=game:GetService("ReplicatedStorage")
+		local ce=rs:FindFirstChild("DefaultChatSystemChatEvents")
+		if not ce then error("x") end
+		local sm=ce:FindFirstChild("SayMessageRequest")
+		if not sm then error("x") end
+		sm:FireServer(msg,"All")
+	end)
+	if ok then return end
+	pcall(function()
+		local tcs=game:GetService("TextChatService")
+		local ch=tcs.TextChannels:WaitForChild("RBXGeneral",1)
+		if ch then ch:SendAsync(msg) end
+	end)
 end
 
 -- ============================================================
@@ -177,41 +177,41 @@ end
 local monitorLabel=nil
 
 local function buildMonitorLabel()
-    if monitorLabel then return end
-    local f=Instance.new("Frame")
-    f.Size=UDim2.new(1,-4,0,80); f.BackgroundColor3=Color3.fromRGB(14,14,22)
-    f.BorderSizePixel=0; f.LayoutOrder=2; f.Parent=scrollFrame
-    makeCorner(f,8); makeStroke(f,Color3.fromRGB(45,45,70),1,0)
-    monitorLabel=Instance.new("TextLabel")
-    monitorLabel.Size=UDim2.new(1,-10,1,0); monitorLabel.Position=UDim2.new(0,6,0,0)
-    monitorLabel.BackgroundTransparency=1; monitorLabel.Text="No map detected."
-    monitorLabel.TextColor3=Color3.fromRGB(200,210,240)
-    monitorLabel.Font=Enum.Font.FredokaOne; monitorLabel.TextSize=11
-    monitorLabel.TextXAlignment=Enum.TextXAlignment.Left
-    monitorLabel.TextYAlignment=Enum.TextYAlignment.Top
-    monitorLabel.TextWrapped=true; monitorLabel.RichText=true
-    monitorLabel.Parent=f
+	if monitorLabel then return end
+	local f=Instance.new("Frame")
+	f.Size=UDim2.new(1,-4,0,80); f.BackgroundColor3=Color3.fromRGB(14,14,22)
+	f.BorderSizePixel=0; f.LayoutOrder=2; f.Parent=scrollFrame
+	makeCorner(f,8); makeStroke(f,Color3.fromRGB(45,45,70),1,0)
+	monitorLabel=Instance.new("TextLabel")
+	monitorLabel.Size=UDim2.new(1,-10,1,0); monitorLabel.Position=UDim2.new(0,6,0,0)
+	monitorLabel.BackgroundTransparency=1; monitorLabel.Text="No map detected."
+	monitorLabel.TextColor3=Color3.fromRGB(200,210,240)
+	monitorLabel.Font=Enum.Font.FredokaOne; monitorLabel.TextSize=11
+	monitorLabel.TextXAlignment=Enum.TextXAlignment.Left
+	monitorLabel.TextYAlignment=Enum.TextYAlignment.Top
+	monitorLabel.TextWrapped=true; monitorLabel.RichText=true
+	monitorLabel.Parent=f
 end
 
 local function refreshMonitor()
-    if not monitorLabel then return end
-    local map=getMap()
-    if not map then monitorLabel.Text="No map detected."; return end
-    local mf=map:FindFirstChild("Monsters")
-    if not mf or #mf:GetChildren()==0 then
-        monitorLabel.Text='<font color="#AAAAAA">No monsters in map.</font>'; return
-    end
-    local lines={}
-    for _,obj in ipairs(mf:GetChildren()) do
-        local name=getDisplayName(obj.Name)
-        local icon,col
-        if isRainbow(obj.Name) then         icon="🌈"; col="#FF80FF"
-        elseif isViolet(obj.Name) then      icon="💜"; col="#CC88FF"
-        elseif isSquirm(obj.Name) then      icon="✨"; col="#FFE066"
-        else                                icon="👾"; col="#FF5555" end
-        table.insert(lines,'<font color="'..col..'">'..icon..' '..name..'</font>')
-    end
-    monitorLabel.Text=table.concat(lines,"\n")
+	if not monitorLabel then return end
+	local map=getMap()
+	if not map then monitorLabel.Text="No map detected."; return end
+	local mf=map:FindFirstChild("Monsters")
+	if not mf or #mf:GetChildren()==0 then
+		monitorLabel.Text='<font color="#AAAAAA">No monsters in map.</font>'; return
+	end
+	local lines={}
+	for _,obj in ipairs(mf:GetChildren()) do
+		local name=getDisplayName(obj.Name)
+		local icon,col
+		if isRainbow(obj.Name) then         icon="🌈"; col="#FF80FF"
+		elseif isViolet(obj.Name) then      icon="💜"; col="#CC88FF"
+		elseif isSquirm(obj.Name) then      icon="✨"; col="#FFE066"
+		else                                icon="👾"; col="#FF5555" end
+		table.insert(lines,'<font color="'..col..'">'..icon..' '..name..'</font>')
+	end
+	monitorLabel.Text=table.concat(lines,"\n")
 end
 
 -- ============================================================
@@ -220,219 +220,340 @@ end
 local infoHud=nil; local infoHudVisible=false; local infoBody=nil
 
 local function refreshInfoHud()
-    if not infoBody then return end
-    local map=getMap()
-    local med=countItems("HealthKit"); local ban=countItems("Bandage")
-    local entries={}
-    if map then
-        local mf=map:FindFirstChild("Monsters")
-        if mf then for _,obj in ipairs(mf:GetChildren()) do
-            local name=getDisplayName(obj.Name)
-            local icon,col
-            if isRainbow(obj.Name) then         icon="🌈"; col="#FF80FF"
-            elseif isViolet(obj.Name) then      icon="💜"; col="#CC88FF"
-            elseif isSquirm(obj.Name) then      icon="✨"; col="#FFE066"
-            else                                icon="👾"; col="#FF5555" end
-            table.insert(entries,'  <font color="'..col..'">'..icon..' '..name..'</font>')
-        end end
-    end
-    local lines={
-        '<font color="#64DC78">💊 Medkit: '..med..'</font>',
-        '<font color="#00DCDC">🩹 Bandage: '..ban..'</font>',
-        '<font color="#FF6464">👾 Twisteds:</font>',
-    }
-    if #entries==0 then table.insert(lines,'  <font color="#AAAAAA">None</font>')
-    else for _,e in ipairs(entries) do table.insert(lines,e) end end
-    infoBody.Text=table.concat(lines,"\n")
-    infoHud.Size=UDim2.new(0,200,0,26+(#lines*18)+8)
+	if not infoBody then return end
+	local map=getMap()
+	local med=countItems("HealthKit"); local ban=countItems("Bandage")
+	local entries={}
+	if map then
+		local mf=map:FindFirstChild("Monsters")
+		if mf then for _,obj in ipairs(mf:GetChildren()) do
+				local name=getDisplayName(obj.Name)
+				local icon,col
+				if isRainbow(obj.Name) then         icon="🌈"; col="#FF80FF"
+				elseif isViolet(obj.Name) then      icon="💜"; col="#CC88FF"
+				elseif isSquirm(obj.Name) then      icon="✨"; col="#FFE066"
+				else                                icon="👾"; col="#FF5555" end
+				table.insert(entries,'  <font color="'..col..'">'..icon..' '..name..'</font>')
+			end end
+	end
+	local lines={
+		'<font color="#64DC78">💊 Medkit: '..med..'</font>',
+		'<font color="#00DCDC">🩹 Bandage: '..ban..'</font>',
+		'<font color="#FF6464">👾 Twisteds:</font>',
+	}
+	if #entries==0 then table.insert(lines,'  <font color="#AAAAAA">None</font>')
+	else for _,e in ipairs(entries) do table.insert(lines,e) end end
+	infoBody.Text=table.concat(lines,"\n")
+	infoHud.Size=UDim2.new(0,200,0,26+(#lines*18)+8)
 end
 
 local function buildInfoHud()
-    if infoHud then
-        infoHudVisible=not infoHudVisible; infoHud.Visible=infoHudVisible; return
-    end
-    infoHud=Instance.new("Frame"); infoHud.Name="MonsterInfoHud"
-    infoHud.Size=UDim2.new(0,200,0,130); infoHud.Position=UDim2.new(0,4,0,8)
-    infoHud.BackgroundColor3=Color3.fromRGB(12,12,20); infoHud.BorderSizePixel=0
-    infoHud.Visible=true; infoHud.Parent=screenGui
-    makeCorner(infoHud,8); makeStroke(infoHud,Color3.fromRGB(55,55,100),1.2,0)
+	if infoHud then
+		infoHudVisible=not infoHudVisible; infoHud.Visible=infoHudVisible; return
+	end
+	infoHud=Instance.new("Frame"); infoHud.Name="MonsterInfoHud"
+	infoHud.Size=UDim2.new(0,200,0,130); infoHud.Position=UDim2.new(0,4,0,8)
+	infoHud.BackgroundColor3=Color3.fromRGB(12,12,20); infoHud.BorderSizePixel=0
+	infoHud.Visible=true; infoHud.Parent=screenGui
+	makeCorner(infoHud,8); makeStroke(infoHud,Color3.fromRGB(55,55,100),1.2,0)
 
-    local hdr=Instance.new("Frame"); hdr.Size=UDim2.new(1,0,0,24)
-    hdr.BackgroundColor3=Color3.fromRGB(20,20,36); hdr.BorderSizePixel=0
-    hdr.Parent=infoHud; makeCorner(hdr,8)
-    local hp=Instance.new("Frame"); hp.Size=UDim2.new(1,0,0.5,0)
-    hp.Position=UDim2.new(0,0,0.5,0); hp.BackgroundColor3=Color3.fromRGB(20,20,36)
-    hp.BorderSizePixel=0; hp.Parent=hdr
-    local hLbl=Instance.new("TextLabel"); hLbl.Size=UDim2.new(1,-8,1,0)
-    hLbl.Position=UDim2.new(0,8,0,0); hLbl.BackgroundTransparency=1
-    hLbl.Text="📌 Map Info"; hLbl.TextColor3=Color3.fromRGB(180,200,255)
-    hLbl.Font=Enum.Font.FredokaOne; hLbl.TextSize=12
-    hLbl.TextXAlignment=Enum.TextXAlignment.Left; hLbl.Parent=hdr
+	local hdr=Instance.new("Frame"); hdr.Size=UDim2.new(1,0,0,24)
+	hdr.BackgroundColor3=Color3.fromRGB(20,20,36); hdr.BorderSizePixel=0
+	hdr.Parent=infoHud; makeCorner(hdr,8)
+	local hp=Instance.new("Frame"); hp.Size=UDim2.new(1,0,0.5,0)
+	hp.Position=UDim2.new(0,0,0.5,0); hp.BackgroundColor3=Color3.fromRGB(20,20,36)
+	hp.BorderSizePixel=0; hp.Parent=hdr
+	local hLbl=Instance.new("TextLabel"); hLbl.Size=UDim2.new(1,-8,1,0)
+	hLbl.Position=UDim2.new(0,8,0,0); hLbl.BackgroundTransparency=1
+	hLbl.Text="📌 Map Info"; hLbl.TextColor3=Color3.fromRGB(180,200,255)
+	hLbl.Font=Enum.Font.FredokaOne; hLbl.TextSize=12
+	hLbl.TextXAlignment=Enum.TextXAlignment.Left; hLbl.Parent=hdr
 
-    infoBody=Instance.new("TextLabel"); infoBody.Size=UDim2.new(1,-12,1,-30)
-    infoBody.Position=UDim2.new(0,8,0,26); infoBody.BackgroundTransparency=1
-    infoBody.Font=Enum.Font.FredokaOne; infoBody.TextSize=12
-    infoBody.TextXAlignment=Enum.TextXAlignment.Left
-    infoBody.TextYAlignment=Enum.TextYAlignment.Top
-    infoBody.TextWrapped=true; infoBody.RichText=true; infoBody.Parent=infoHud
+	infoBody=Instance.new("TextLabel"); infoBody.Size=UDim2.new(1,-12,1,-30)
+	infoBody.Position=UDim2.new(0,8,0,26); infoBody.BackgroundTransparency=1
+	infoBody.Font=Enum.Font.FredokaOne; infoBody.TextSize=12
+	infoBody.TextXAlignment=Enum.TextXAlignment.Left
+	infoBody.TextYAlignment=Enum.TextYAlignment.Top
+	infoBody.TextWrapped=true; infoBody.RichText=true; infoBody.Parent=infoHud
 
-    local chatPanel=Instance.new("Frame"); chatPanel.Name="ChatPanel"
-    chatPanel.Size=UDim2.new(0,200,0,168); chatPanel.Position=UDim2.new(0,4,0,148)
-    chatPanel.BackgroundColor3=Color3.fromRGB(12,12,20); chatPanel.BorderSizePixel=0
-    chatPanel.Parent=screenGui
-    makeCorner(chatPanel,8); makeStroke(chatPanel,Color3.fromRGB(55,55,100),1.2,0)
+	local chatPanel=Instance.new("Frame"); chatPanel.Name="ChatPanel"
+	chatPanel.Size=UDim2.new(0,200,0,168); chatPanel.Position=UDim2.new(0,4,0,148)
+	chatPanel.BackgroundColor3=Color3.fromRGB(12,12,20); chatPanel.BorderSizePixel=0
+	chatPanel.Parent=screenGui
+	makeCorner(chatPanel,8); makeStroke(chatPanel,Color3.fromRGB(55,55,100),1.2,0)
 
-    local cHdr=Instance.new("Frame"); cHdr.Size=UDim2.new(1,0,0,24)
-    cHdr.BackgroundColor3=Color3.fromRGB(20,20,36); cHdr.BorderSizePixel=0
-    cHdr.Parent=chatPanel; makeCorner(cHdr,8)
-    local cHdrP=Instance.new("Frame"); cHdrP.Size=UDim2.new(1,0,0.5,0)
-    cHdrP.Position=UDim2.new(0,0,0.5,0); cHdrP.BackgroundColor3=Color3.fromRGB(20,20,36)
-    cHdrP.BorderSizePixel=0; cHdrP.Parent=cHdr
-    local cLbl=Instance.new("TextLabel"); cLbl.Size=UDim2.new(1,-28,1,0)
-    cLbl.Position=UDim2.new(0,8,0,0); cLbl.BackgroundTransparency=1
-    cLbl.Text="💬 Auto Chat"; cLbl.TextColor3=Color3.fromRGB(180,200,255)
-    cLbl.Font=Enum.Font.FredokaOne; cLbl.TextSize=12
-    cLbl.TextXAlignment=Enum.TextXAlignment.Left; cLbl.Parent=cHdr
+	local cHdr=Instance.new("Frame"); cHdr.Size=UDim2.new(1,0,0,24)
+	cHdr.BackgroundColor3=Color3.fromRGB(20,20,36); cHdr.BorderSizePixel=0
+	cHdr.Parent=chatPanel; makeCorner(cHdr,8)
+	local cHdrP=Instance.new("Frame"); cHdrP.Size=UDim2.new(1,0,0.5,0)
+	cHdrP.Position=UDim2.new(0,0,0.5,0); cHdrP.BackgroundColor3=Color3.fromRGB(20,20,36)
+	cHdrP.BorderSizePixel=0; cHdrP.Parent=cHdr
+	local cLbl=Instance.new("TextLabel"); cLbl.Size=UDim2.new(1,-28,1,0)
+	cLbl.Position=UDim2.new(0,8,0,0); cLbl.BackgroundTransparency=1
+	cLbl.Text="💬 Auto Chat"; cLbl.TextColor3=Color3.fromRGB(180,200,255)
+	cLbl.Font=Enum.Font.FredokaOne; cLbl.TextSize=12
+	cLbl.TextXAlignment=Enum.TextXAlignment.Left; cLbl.Parent=cHdr
 
-    local chatExpanded=true
-    local colBtn=Instance.new("TextButton"); colBtn.Size=UDim2.new(0,24,0,24)
-    colBtn.Position=UDim2.new(1,-26,0,0); colBtn.BackgroundTransparency=1
-    colBtn.Text="▲"; colBtn.TextColor3=Color3.fromRGB(150,160,210)
-    colBtn.Font=Enum.Font.FredokaOne; colBtn.TextSize=11
-    colBtn.BorderSizePixel=0; colBtn.AutoButtonColor=false; colBtn.Parent=cHdr
+	local chatExpanded=true
+	local colBtn=Instance.new("TextButton"); colBtn.Size=UDim2.new(0,24,0,24)
+	colBtn.Position=UDim2.new(1,-26,0,0); colBtn.BackgroundTransparency=1
+	colBtn.Text="▲"; colBtn.TextColor3=Color3.fromRGB(150,160,210)
+	colBtn.Font=Enum.Font.FredokaOne; colBtn.TextSize=11
+	colBtn.BorderSizePixel=0; colBtn.AutoButtonColor=false; colBtn.Parent=cHdr
 
-    local cBody=Instance.new("Frame"); cBody.Size=UDim2.new(1,-10,1,-30)
-    cBody.Position=UDim2.new(0,5,0,28); cBody.BackgroundTransparency=1; cBody.Parent=chatPanel
-    local cLayout=Instance.new("UIListLayout")
-    cLayout.SortOrder=Enum.SortOrder.LayoutOrder; cLayout.Padding=UDim.new(0,4); cLayout.Parent=cBody
+	local cBody=Instance.new("Frame"); cBody.Size=UDim2.new(1,-10,1,-30)
+	cBody.Position=UDim2.new(0,5,0,28); cBody.BackgroundTransparency=1; cBody.Parent=chatPanel
+	local cLayout=Instance.new("UIListLayout")
+	cLayout.SortOrder=Enum.SortOrder.LayoutOrder; cLayout.Padding=UDim.new(0,4); cLayout.Parent=cBody
 
-    local function makeCBtn(txt,col,order,fn)
-        local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,24)
-        b.BackgroundColor3=col; b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
-        b.TextSize=11; b.Text=txt; b.BorderSizePixel=0; b.AutoButtonColor=false
-        b.LayoutOrder=order; b.Parent=cBody; makeCorner(b,6)
-        makeStroke(b,Color3.fromRGB(80,80,120),1,0.5)
-        b.MouseButton1Click:Connect(function() pcall(fn) end)
-    end
-    makeCBtn("🌈 Main Twisteds",Color3.fromRGB(100,40,130),1,function()
-        local map=getMap(); local names={}
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isRainbow(o.Name) then table.insert(names,getDisplayName(o.Name)) end
-            end end end
-        if #names==0 then sendChat("No Main Twisteds in the Map.")
-        else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
-    end)
-    makeCBtn("💜 New Twisteds",Color3.fromRGB(80,40,120),2,function()
-        local map=getMap(); local names={}
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isViolet(o.Name) then table.insert(names,getDisplayName(o.Name)) end
-            end end end
-        if #names==0 then sendChat("No New Twisteds in the Map.")
-        else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
-    end)
-    makeCBtn("✨ Squirm",Color3.fromRGB(120,90,15),3,function()
-        local map=getMap(); local found=false
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isSquirm(o.Name) then found=true; break end
-            end end end
-        sendChat(found and "SQUIRM!!!" or "No Mains and No Squirm.")
-    end)
-    makeCBtn("💊 Medkit",Color3.fromRGB(25,85,35),4,function()
-        local n=countItems("HealthKit")
-        sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Band and Medkit.")
-    end)
-    makeCBtn("🩹 Bandage",Color3.fromRGB(15,75,75),5,function()
-        local n=countItems("Bandage")
-        sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Band and Medkit.")
-    end)
+	local function makeCBtn(txt,col,order,fn)
+		local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,24)
+		b.BackgroundColor3=col; b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
+		b.TextSize=11; b.Text=txt; b.BorderSizePixel=0; b.AutoButtonColor=false
+		b.LayoutOrder=order; b.Parent=cBody; makeCorner(b,6)
+		makeStroke(b,Color3.fromRGB(80,80,120),1,0.5)
+		b.MouseButton1Click:Connect(function() pcall(fn) end)
+	end
+	makeCBtn("🌈 Main Twisteds",Color3.fromRGB(100,40,130),1,function()
+		local map=getMap(); local names={}
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isRainbow(o.Name) then table.insert(names,getDisplayName(o.Name)) end
+				end end end
+		if #names==0 then sendChat("No Main Twisteds in the Map.")
+		else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
+	end)
+	makeCBtn("💜 New Twisteds",Color3.fromRGB(80,40,120),2,function()
+		local map=getMap(); local names={}
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isViolet(o.Name) then table.insert(names,getDisplayName(o.Name)) end
+				end end end
+		if #names==0 then sendChat("No New Twisteds in the Map.")
+		else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
+	end)
+	makeCBtn("✨ Squirm",Color3.fromRGB(120,90,15),3,function()
+		local map=getMap(); local found=false
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isSquirm(o.Name) then found=true; break end
+				end end end
+		sendChat(found and "SQUIRM!!!" or "No Mains and No Squirm.")
+	end)
+	makeCBtn("💊 Medkit",Color3.fromRGB(25,85,35),4,function()
+		local n=countItems("HealthKit")
+		sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Band and Medkit.")
+	end)
+	makeCBtn("🩹 Bandage",Color3.fromRGB(15,75,75),5,function()
+		local n=countItems("Bandage")
+		sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Band and Medkit.")
+	end)
 
-    colBtn.MouseButton1Click:Connect(function()
-        chatExpanded=not chatExpanded; cBody.Visible=chatExpanded
-        colBtn.Text=chatExpanded and "▲" or "▼"
-        chatPanel.Size=UDim2.new(0,200,0,chatExpanded and 168 or 24)
-    end)
+	colBtn.MouseButton1Click:Connect(function()
+		chatExpanded=not chatExpanded; cBody.Visible=chatExpanded
+		colBtn.Text=chatExpanded and "▲" or "▼"
+		chatPanel.Size=UDim2.new(0,200,0,chatExpanded and 168 or 24)
+	end)
 
-    RunService.Heartbeat:Connect(function()
-        if not infoHud or not infoHud.Visible then chatPanel.Visible=false; return end
-        chatPanel.Visible=true
-        chatPanel.Position=UDim2.new(
-            infoHud.Position.X.Scale,infoHud.Position.X.Offset,
-            infoHud.Position.Y.Scale,infoHud.Position.Y.Offset+infoHud.AbsoluteSize.Y+4)
-    end)
+	RunService.Heartbeat:Connect(function()
+		if not infoHud or not infoHud.Visible then chatPanel.Visible=false; return end
+		chatPanel.Visible=true
+		chatPanel.Position=UDim2.new(
+			infoHud.Position.X.Scale,infoHud.Position.X.Offset,
+			infoHud.Position.Y.Scale,infoHud.Position.Y.Offset+infoHud.AbsoluteSize.Y+4)
+	end)
 
-    local drag,ds,ps=false
-    hdr.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or
-           i.UserInputType==Enum.UserInputType.Touch then
-            drag=true; ds=i.Position; ps=infoHud.Position end end)
-    UserInputSvc.InputChanged:Connect(function(i)
-        if not drag then return end
-        if i.UserInputType==Enum.UserInputType.MouseMovement or
-           i.UserInputType==Enum.UserInputType.Touch then
-            local d=i.Position-ds
-            infoHud.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,ps.Y.Scale,ps.Y.Offset+d.Y) end end)
-    UserInputSvc.InputEnded:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or
-           i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+	local drag,ds,ps=false
+	hdr.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 or
+			i.UserInputType==Enum.UserInputType.Touch then
+			drag=true; ds=i.Position; ps=infoHud.Position end end)
+	UserInputSvc.InputChanged:Connect(function(i)
+		if not drag then return end
+		if i.UserInputType==Enum.UserInputType.MouseMovement or
+			i.UserInputType==Enum.UserInputType.Touch then
+			local d=i.Position-ds
+			infoHud.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,ps.Y.Scale,ps.Y.Offset+d.Y) end end)
+	UserInputSvc.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 or
+			i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
 
-    infoHudVisible=true; refreshInfoHud()
+	infoHudVisible=true; refreshInfoHud()
+end
+
+-- ============================================================
+--  MONSTER HELP GUIDE (horizontal scroll)
+-- ============================================================
+local MONSTER_GUIDE = {
+	{ name="Astro",            id="17615948235" },
+	{ name="Bassie",           id="126888077067126" },
+	{ name="Blot",             id="95105136839962" },
+	{ name="Bobette",          id="125341856238798" },
+	{ name="Boxten",           id="17173327545" },
+	{ name="Brightney",        id="17632349232" },
+	{ name="Brusha",           id="121361541898971" },
+	{ name="Coal",             id="131591684347264" },
+	{ name="Cocoa",            id="131621776719456" },
+	{ name="Connie",           id="91802161679934" },
+	{ name="Cosmo",            id="18673000387" },
+	{ name="Dandy",            id="17515073882" },
+	{ name="Dyle",             id="89756984894673" },
+	{ name="Eclipse",          id="117268425407246" },
+	{ name="Eggson",           id="90676203863684" },
+	{ name="Finn",             id="18726780970" },
+	{ name="Flutter",          id="18239227410" },
+	{ name="Flyte",            id="78483354652017" },
+	{ name="Gigi",             id="106223056157959" },
+	{ name="Ginger",           id="91212033862550" },
+	{ name="Glisten",          id="18818639838" },
+	{ name="Goob",             id="17268662964" },
+	{ name="Gourdy",           id="77513590902874" },
+	{ name="Looey",            id="116451358719686" },
+	{ name="Pebble",           id="17011493217" },
+	{ name="Poppy",            id="17011493901" },
+	{ name="Razzle & Dazzle",  id="17640490166" },
+	{ name="Rebecca",          id="108943745948703" },
+	{ name="Rodger",           id="17105925417" },
+	{ name="Rudie",            id="106888954860502" },
+	{ name="Scraps",           id="17572307852" },
+	{ name="Shelly",           id="18211657552" },
+	{ name="Shrimpo",          id="17583256112" },
+	{ name="Soulvester",       id="112352886297624" },
+	{ name="Sprout",           id="18688072034" },
+	{ name="Squirm",           id="108443751963686" },
+	{ name="Teagan",           id="18194852499" },
+	{ name="Tisha",            id="18162886211" },
+	{ name="Toodles",          id="17643350074" },
+	{ name="Vee",              id="17320166218" },
+	{ name="Yatta",            id="92678844815201" },
+}
+
+local function buildGuideSection()
+	-- Outer container (same style as monitor label frame)
+	local guideFrame = Instance.new("Frame")
+	guideFrame.Size             = UDim2.new(1, -4, 0, 110)
+	guideFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 22)
+	guideFrame.BorderSizePixel  = 0
+	guideFrame.LayoutOrder      = 0
+	guideFrame.Parent           = scrollFrame
+	makeCorner(guideFrame, 8)
+	makeStroke(guideFrame, Color3.fromRGB(45, 45, 70), 1, 0)
+
+	-- Horizontal scroll inside
+	local hScroll = Instance.new("ScrollingFrame")
+	hScroll.Size                 = UDim2.new(1, -8, 1, -8)
+	hScroll.Position             = UDim2.new(0, 4, 0, 4)
+	hScroll.BackgroundTransparency = 1
+	hScroll.BorderSizePixel      = 0
+	hScroll.CanvasSize           = UDim2.new(0, 0, 0, 0)
+	hScroll.AutomaticCanvasSize  = Enum.AutomaticSize.X
+	hScroll.ScrollBarThickness   = 3
+	hScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 120, 255)
+	hScroll.ScrollingDirection   = Enum.ScrollingDirection.X
+	hScroll.Parent               = guideFrame
+
+	local hLayout = Instance.new("UIListLayout")
+	hLayout.FillDirection        = Enum.FillDirection.Horizontal
+	hLayout.SortOrder            = Enum.SortOrder.LayoutOrder
+	hLayout.Padding              = UDim.new(0, 6)
+	hLayout.VerticalAlignment    = Enum.VerticalAlignment.Center
+	hLayout.Parent               = hScroll
+
+	local hPadding = Instance.new("UIPadding")
+	hPadding.PaddingLeft  = UDim.new(0, 4)
+	hPadding.PaddingRight = UDim.new(0, 4)
+	hPadding.Parent       = hScroll
+
+	-- Build a card per monster
+	for i, m in ipairs(MONSTER_GUIDE) do
+		local card = Instance.new("Frame")
+		card.Size             = UDim2.new(0, 68, 0, 90)
+		card.BackgroundColor3 = Color3.fromRGB(22, 24, 40)
+		card.BorderSizePixel  = 0
+		card.LayoutOrder      = i
+		card.Parent           = hScroll
+		makeCorner(card, 6)
+		makeStroke(card, Color3.fromRGB(55, 55, 85), 1, 0)
+
+		local img = Instance.new("ImageLabel")
+		img.Size              = UDim2.new(1, -8, 0, 62)
+		img.Position          = UDim2.new(0, 4, 0, 4)
+		img.BackgroundColor3  = Color3.fromRGB(14, 14, 22)
+		img.BorderSizePixel   = 0
+		img.Image             = "rbxassetid://" .. m.id
+		img.ScaleType         = Enum.ScaleType.Fit
+		img.Parent            = card
+		makeCorner(img, 4)
+
+		local lbl = Instance.new("TextLabel")
+		lbl.Size              = UDim2.new(1, -4, 0, 20)
+		lbl.Position          = UDim2.new(0, 2, 1, -22)
+		lbl.BackgroundTransparency = 1
+		lbl.Text              = m.name
+		lbl.TextColor3        = Color3.fromRGB(200, 210, 240)
+		lbl.Font              = Enum.Font.FredokaOne
+		lbl.TextSize          = 9
+		lbl.TextScaled        = false
+		lbl.TextWrapped       = true
+		lbl.TextXAlignment    = Enum.TextXAlignment.Center
+		lbl.Parent            = card
+	end
 end
 
 -- ============================================================
 --  BUILD MENU TAB
 -- ============================================================
 if scrollFrame then
-    makeHeader(scrollFrame,"  MONSTERS IN MAP",1)
-    buildMonitorLabel()
-    makeHeader(scrollFrame,"  HUD",9)
-    makeBtn(scrollFrame,"📌 Map Info + Auto Chat HUD",Color3.fromRGB(40,60,120),10,buildInfoHud)
-    makeHeader(scrollFrame,"  AUTO CHAT",11)
-    makeBtn(scrollFrame,"🌈 Main Twisteds",Color3.fromRGB(100,40,130),12,function()
-        local map=getMap(); local names={}
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isRainbow(o.Name) then table.insert(names,getDisplayName(o.Name)) end
-            end end end
-        if #names==0 then sendChat("No Main Twisteds in the Map.")
-        else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
-    end)
-    makeBtn(scrollFrame,"💜 New Twisteds",Color3.fromRGB(80,40,120),13,function()
-        local map=getMap(); local names={}
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isViolet(o.Name) then table.insert(names,getDisplayName(o.Name)) end
-            end end end
-        if #names==0 then sendChat("No New Twisteds in the Map.")
-        else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
-    end)
-    makeBtn(scrollFrame,"✨ Chat: Squirm",Color3.fromRGB(120,90,15),14,function()
-        local map=getMap(); local found=false
-        if map then local mf=map:FindFirstChild("Monsters")
-            if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isSquirm(o.Name) then found=true; break end
-            end end end
-        sendChat(found and "SQUIRM!!!" or "No Mains and No Squirm.")
-    end)
-    makeBtn(scrollFrame,"💊 Chat: Medkit",Color3.fromRGB(25,85,35),15,function()
-        local n=countItems("HealthKit")
-        sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Band and Medkit.")
-    end)
-    makeBtn(scrollFrame,"🩹 Chat: Bandage",Color3.fromRGB(15,75,75),16,function()
-        local n=countItems("Bandage")
-        sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Band and Medkit.")
-    end)
+	makeHeader(scrollFrame,"  MONSTERS HELP GUIDE (Coming Soon! on Version 2.0)",0)
+	buildGuideSection()
+	makeHeader(scrollFrame,"  MONSTERS IN MAP",1)
+	buildMonitorLabel()
+	makeHeader(scrollFrame,"  HUD",9)
+	makeBtn(scrollFrame,"📌 Map Info + Auto Chat HUD",Color3.fromRGB(40,60,120),10,buildInfoHud)
+	makeHeader(scrollFrame,"  AUTO CHAT",11)
+	makeBtn(scrollFrame,"🌈 Main Twisteds",Color3.fromRGB(100,40,130),12,function()
+		local map=getMap(); local names={}
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isRainbow(o.Name) then table.insert(names,getDisplayName(o.Name)) end
+				end end end
+		if #names==0 then sendChat("No Main Twisteds in the Map.")
+		else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
+	end)
+	makeBtn(scrollFrame,"💜 New Twisteds",Color3.fromRGB(80,40,120),13,function()
+		local map=getMap(); local names={}
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isViolet(o.Name) then table.insert(names,getDisplayName(o.Name)) end
+				end end end
+		if #names==0 then sendChat("No New Twisteds in the Map.")
+		else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
+	end)
+	makeBtn(scrollFrame,"✨ Chat: Squirm",Color3.fromRGB(120,90,15),14,function()
+		local map=getMap(); local found=false
+		if map then local mf=map:FindFirstChild("Monsters")
+			if mf then for _,o in ipairs(mf:GetChildren()) do
+					if isSquirm(o.Name) then found=true; break end
+				end end end
+		sendChat(found and "SQUIRM!!!" or "No Mains and No Squirm.")
+	end)
+	makeBtn(scrollFrame,"💊 Chat: Medkit",Color3.fromRGB(25,85,35),15,function()
+		local n=countItems("HealthKit")
+		sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Band and Medkit.")
+	end)
+	makeBtn(scrollFrame,"🩹 Chat: Bandage",Color3.fromRGB(15,75,75),16,function()
+		local n=countItems("Bandage")
+		sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Band and Medkit.")
+	end)
 end
 
 local lastRefresh=0
 RunService.Heartbeat:Connect(function(dt)
-    lastRefresh=lastRefresh+dt
-    if lastRefresh<1.5 then return end
-    lastRefresh=0
-    refreshMonitor()
-    if infoHudVisible and infoHud and infoHud.Visible then refreshInfoHud() end
+	lastRefresh=lastRefresh+dt
+	if lastRefresh<1.5 then return end
+	lastRefresh=0
+	refreshMonitor()
+	if infoHudVisible and infoHud and infoHud.Visible then refreshInfoHud() end
 end)
 
 print("[Tab_Monsters] Loaded.")
