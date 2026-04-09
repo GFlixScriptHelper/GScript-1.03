@@ -464,6 +464,28 @@ local function buildGuideSection()
     hPadding.PaddingRight = UDim.new(0, 4)
     hPadding.Parent       = hScroll
 
+    -- Animation registries
+    local rainbowCards = {}
+    local pinkCards    = {}
+    local squirmCards  = {}
+
+    local GUIDE_RAINBOW = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
+    local GUIDE_PINK    = {"Bassie","Flyte","Cocoa","Eggson"}
+    local GUIDE_SQUIRM  = {"Squirm"}
+
+    local function isGuideRainbow(name)
+        for _,k in ipairs(GUIDE_RAINBOW) do if name==k then return true end end
+        return false
+    end
+    local function isGuidePink(name)
+        for _,k in ipairs(GUIDE_PINK) do if name==k then return true end end
+        return false
+    end
+    local function isGuideSquirm(name)
+        for _,k in ipairs(GUIDE_SQUIRM) do if name==k then return true end end
+        return false
+    end
+
     -- Build a card per monster
     for i, m in ipairs(MONSTER_GUIDE) do
         local card = Instance.new("Frame")
@@ -473,7 +495,25 @@ local function buildGuideSection()
         card.LayoutOrder      = i
         card.Parent           = hScroll
         makeCorner(card, 6)
-        makeStroke(card, Color3.fromRGB(55, 55, 85), 1, 0)
+
+        -- Stroke color depends on type
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness    = 1.5
+        stroke.Transparency = 0
+        stroke.Parent       = card
+
+        if isGuideRainbow(m.name) then
+            stroke.Color = Color3.fromRGB(255, 0, 0)
+            table.insert(rainbowCards, stroke)
+        elseif isGuidePink(m.name) then
+            stroke.Color = Color3.fromRGB(255, 105, 180)
+            table.insert(pinkCards, stroke)
+        elseif isGuideSquirm(m.name) then
+            stroke.Color = Color3.fromRGB(255, 140, 0)
+            table.insert(squirmCards, stroke)
+        else
+            stroke.Color = Color3.fromRGB(55, 55, 85)
+        end
 
         local img = Instance.new("ImageLabel")
         img.Size              = UDim2.new(1, -8, 0, 105)
@@ -498,6 +538,37 @@ local function buildGuideSection()
         lbl.TextXAlignment    = Enum.TextXAlignment.Center
         lbl.Parent            = card
     end
+
+    -- Animate card strokes
+    local rainbowT = 0
+    local pinkT    = 0
+    RunService.Heartbeat:Connect(function(dt)
+        rainbowT = (rainbowT + dt * 1.5) % 1
+        pinkT    = (pinkT    + dt * 1.2) % 1
+        -- Rainbow stroke for mains
+        if #rainbowCards > 0 then
+            local col = Color3.fromHSV(rainbowT, 1, 1)
+            for _, s in ipairs(rainbowCards) do
+                pcall(function() s.Color = col end)
+            end
+        end
+        -- Pink/white pulse for Bassie, Flyte, Cocoa, Eggson
+        if #pinkCards > 0 then
+            local t   = math.abs(math.sin(pinkT * math.pi))
+            local col = Color3.fromRGB(255, 105, 180):Lerp(Color3.fromRGB(255, 255, 255), t)
+            for _, s in ipairs(pinkCards) do
+                pcall(function() s.Color = col end)
+            end
+        end
+        -- Orange/white pulse for Squirm
+        if #squirmCards > 0 then
+            local t   = math.abs(math.sin(pinkT * math.pi))
+            local col = Color3.fromRGB(255, 140, 0):Lerp(Color3.fromRGB(255, 255, 255), t)
+            for _, s in ipairs(squirmCards) do
+                pcall(function() s.Color = col end)
+            end
+        end
+    end)
 end
 
 -- ============================================================
