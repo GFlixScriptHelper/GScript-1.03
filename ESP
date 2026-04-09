@@ -104,27 +104,16 @@ local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
 
     local pill = Instance.new("Frame")
     pill.Size             = UDim2.new(0, 4, 0, 18)
-    pill.Position         = UDim2.new(0, 7, 0.5, -9)
+    pill.Position         = UDim2.new(0, 6, 0.5, -9)
     pill.BackgroundColor3 = pillColor
     pill.BorderSizePixel  = 0
     pill.Parent           = row
     makeCorner(pill, 3)
 
-    local lbl = Instance.new("TextLabel")
-    lbl.Size             = UDim2.new(1, -16, 0, 24)
-    lbl.Position         = UDim2.new(0, 16, 0, 4)
-    lbl.BackgroundTransparency = 1
-    lbl.Text             = labelTxt
-    lbl.TextColor3       = Color3.fromRGB(210, 215, 235)
-    lbl.Font             = Enum.Font.FredokaOne
-    lbl.TextSize         = 10
-    lbl.TextXAlignment   = Enum.TextXAlignment.Left
-    lbl.TextWrapped      = true
-    lbl.Parent           = row
-
+    -- Switch anchored to RIGHT side, vertically centered
     local swBg = Instance.new("TextButton")
     swBg.Size             = UDim2.new(0, 36, 0, 18)
-    swBg.Position         = UDim2.new(0, 16, 1, -24)
+    swBg.Position         = UDim2.new(1, -42, 0.5, -9)
     swBg.BackgroundColor3 = Color3.fromRGB(40, 40, 65)
     swBg.BorderSizePixel  = 0
     swBg.Text             = ""
@@ -140,6 +129,19 @@ local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
     knob.BorderSizePixel  = 0
     knob.Parent           = swBg
     makeCorner(knob, 6)
+
+    -- Label sits between pill and switch
+    local lbl = Instance.new("TextLabel")
+    lbl.Size             = UDim2.new(1, -58, 1, 0)
+    lbl.Position         = UDim2.new(0, 16, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text             = labelTxt
+    lbl.TextColor3       = Color3.fromRGB(210, 215, 235)
+    lbl.Font             = Enum.Font.FredokaOne
+    lbl.TextSize         = 12
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.TextWrapped      = true
+    lbl.Parent           = row
 
     local enabled   = false
     local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -644,3 +646,4 @@ if scrollFrame then
 end
 
 watchCurrentRoom()
+print("[Tab_ESP] Loaded.")
