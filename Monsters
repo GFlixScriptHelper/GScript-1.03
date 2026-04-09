@@ -101,7 +101,7 @@ local function makeBtn(parent, txt, color, order, fn)
     makeCorner(b,8); makeStroke(b,Color3.fromRGB(80,80,120),1,0.4)
     local grad=Instance.new("UIGradient"); grad.Rotation=90
     grad.Transparency=NumberSequence.new({
-        NumberSequenceKeypoint.new(0,0.85), NumberSequenceKeypoint.new(1,0.95)
+        NumberSequenceKeypoint.new(0,0.1), NumberSequenceKeypoint.new(1,0.3)
     }); grad.Parent=b
     b.MouseButton1Click:Connect(function() pcall(fn) end)
     return b
