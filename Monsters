@@ -112,7 +112,7 @@ end
 -- ============================================================
 local RAINBOW_MONSTERS = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
 local VIOLET_MONSTERS  = {"Bassie","Flyte","Cocoa","Eggson"}
-local SQUIRM_ONLY      = {"Squirm"}
+local SQUIRM_ONLY      = {} -- Squirm is now default/normal
 local MONSTER_NAMES = {
     Astro="Twisted Astro",Shelly="Twisted Shelly",Vee="Twisted Vee",
     Dandy="Twisted Dandy",Dyle="Twisted Dyle",Sprout="Twisted Sprout",
@@ -250,7 +250,7 @@ local function rebuildMonsterDetector()
 
     local GUIDE_RAINBOW = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
     local GUIDE_PINK    = {"Bassie","Flyte","Cocoa","Eggson"}
-    local GUIDE_SQUIRM  = {"Squirm"}
+    local GUIDE_SQUIRM  = {} -- Squirm treated as rainbow/main
     local function isGRainbow(n) for _,k in ipairs(GUIDE_RAINBOW) do if n:lower():find(k:lower()) then return true end end return false end
     local function isGPink(n)    for _,k in ipairs(GUIDE_PINK)    do if n:lower():find(k:lower()) then return true end end return false end
     local function isGSquirm(n)  for _,k in ipairs(GUIDE_SQUIRM)  do if n:lower():find(k:lower()) then return true end end return false end
@@ -334,13 +334,14 @@ local function buildLatestHud()
     latestHud.ImageTransparency=0.89; latestHud.ScaleType=Enum.ScaleType.Tile
     latestHud.Visible=true; latestHud.Parent=screenGui
     makeHudGradient(latestHud); makeCorner(latestHud,8)
+    makeStroke(latestHud,Color3.fromRGB(100,120,255),1.5,0)
 
     -- Header label
     local hdrLbl=Instance.new("TextLabel"); hdrLbl.BackgroundTransparency=1
-    hdrLbl.Size=UDim2.new(1,-8,0,0); hdrLbl.Size=UDim2.new(0,200,0,22)
+    hdrLbl.Size=UDim2.new(0.65,0,0.14,0)
     hdrLbl.Position=UDim2.new(0,6,0,2); hdrLbl.ZIndex=4
-    hdrLbl.Font=Enum.Font.FredokaOne; hdrLbl.Text="Map Info - Monster Detector"
-    hdrLbl.TextColor3=Color3.fromRGB(255,255,255); hdrLbl.TextScaled=true
+    hdrLbl.Font=Enum.Font.FredokaOne; hdrLbl.Text="Map Info"
+    hdrLbl.TextColor3=Color3.fromRGB(200,210,255); hdrLbl.TextScaled=true
     hdrLbl.TextStrokeTransparency=0; hdrLbl.TextWrapped=true
     hdrLbl.TextXAlignment=Enum.TextXAlignment.Left; hdrLbl.Parent=latestHud
 
@@ -365,6 +366,7 @@ local function buildLatestHud()
     monsterDetectorSF.ScrollBarThickness=1
     monsterDetectorSF.ScrollingDirection=Enum.ScrollingDirection.X
     monsterDetectorSF.Parent=latestHud; makeCorner(monsterDetectorSF,6)
+    makeStroke(monsterDetectorSF,Color3.fromRGB(60,60,100),1,0)
     local mdLayout=Instance.new("UIListLayout"); mdLayout.FillDirection=Enum.FillDirection.Horizontal
     mdLayout.SortOrder=Enum.SortOrder.LayoutOrder; mdLayout.Padding=UDim.new(0,4)
     mdLayout.VerticalAlignment=Enum.VerticalAlignment.Center; mdLayout.Parent=monsterDetectorSF
@@ -380,11 +382,13 @@ local function buildLatestHud()
     itemDet.Image="rbxassetid://6794283750"; itemDet.ImageTransparency=0.89
     itemDet.ScaleType=Enum.ScaleType.Tile; itemDet.Parent=latestHud
     makeHudGradient(itemDet); makeCorner(itemDet,8)
+    makeStroke(itemDet,Color3.fromRGB(100,120,255),1.5,0)
 
     local itemHdr=Instance.new("TextLabel"); itemHdr.BackgroundTransparency=1
-    itemHdr.Size=UDim2.new(0,200,0,22); itemHdr.ZIndex=4
-    itemHdr.Font=Enum.Font.FredokaOne; itemHdr.Text="Item Detector"
-    itemHdr.TextColor3=Color3.fromRGB(255,255,255); itemHdr.TextScaled=true
+    itemHdr.Size=UDim2.new(1,0,0.14,0)
+    itemHdr.Position=UDim2.new(0,4,0,2); itemHdr.ZIndex=4
+    itemHdr.Font=Enum.Font.FredokaOne; itemHdr.Text="Items"
+    itemHdr.TextColor3=Color3.fromRGB(200,210,255); itemHdr.TextScaled=true
     itemHdr.TextStrokeTransparency=0; itemHdr.TextWrapped=true
     itemHdr.TextXAlignment=Enum.TextXAlignment.Left; itemHdr.Parent=itemDet
 
@@ -431,11 +435,12 @@ local function buildLatestHud()
     autoChatPanel.Image="rbxassetid://6794283750"; autoChatPanel.ImageTransparency=0.89
     autoChatPanel.ScaleType=Enum.ScaleType.Tile; autoChatPanel.Visible=false
     autoChatPanel.Parent=latestHud; makeHudGradient(autoChatPanel); makeCorner(autoChatPanel,8)
+    makeStroke(autoChatPanel,Color3.fromRGB(100,120,255),1.5,0)
 
     local acHdr=Instance.new("TextLabel"); acHdr.BackgroundTransparency=1
-    acHdr.Position=UDim2.new(0,4,0,2); acHdr.Size=UDim2.new(0.281423241,0,0.234235615,0); acHdr.ZIndex=4
+    acHdr.Position=UDim2.new(0,4,0,2); acHdr.Size=UDim2.new(0.5,0,0.12,0); acHdr.ZIndex=4
     acHdr.Font=Enum.Font.FredokaOne; acHdr.Text="Auto Chat"
-    acHdr.TextColor3=Color3.fromRGB(255,255,255); acHdr.TextScaled=true
+    acHdr.TextColor3=Color3.fromRGB(200,210,255); acHdr.TextScaled=true
     acHdr.TextStrokeTransparency=0; acHdr.TextWrapped=true
     acHdr.TextXAlignment=Enum.TextXAlignment.Left; acHdr.Parent=autoChatPanel
 
@@ -634,7 +639,7 @@ local function buildGuideSection()
 
     local GUIDE_RAINBOW = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
     local GUIDE_PINK    = {"Bassie","Flyte","Cocoa","Eggson"}
-    local GUIDE_SQUIRM  = {"Squirm"}
+    local GUIDE_SQUIRM  = {} -- Squirm treated as rainbow/main
 
     local function isGuideRainbow(name)
         for _,k in ipairs(GUIDE_RAINBOW) do if name==k then return true end end
