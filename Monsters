@@ -215,106 +215,244 @@ local function refreshMonitor()
 end
 
 -- ============================================================
---  FLOATING INFO HUD
+--  LATEST HUD  (LatestHud design)
 -- ============================================================
-local infoHud=nil; local infoHudVisible=false; local infoBody=nil
+local latestHud         = nil
+local medkitAmountLbl   = nil
+local bandageAmountLbl  = nil
+local monsterDetectorSF = nil
+local infoHudVisible    = false
 
-local function refreshInfoHud()
-    if not infoBody then return end
-    local map=getMap()
-    local med=countItems("HealthKit"); local ban=countItems("Bandage")
-    local entries={}
-    if map then
-        local mf=map:FindFirstChild("Monsters")
-        if mf then for _,obj in ipairs(mf:GetChildren()) do
-            local name=getDisplayName(obj.Name)
-            local icon,col
-            if isRainbow(obj.Name) then         icon="🌈"; col="#FF80FF"
-            elseif isViolet(obj.Name) then      icon="💜"; col="#CC88FF"
-            elseif isSquirm(obj.Name) then      icon="✨"; col="#FFE066"
-            else                                icon="👾"; col="#FF5555" end
-            table.insert(entries,'  <font color="'..col..'">'..icon..' '..name..'</font>')
-        end end
+-- Headshot lookup from MONSTER_GUIDE (built later, safe to use after it's defined)
+local function getHeadshotForObj(objName)
+    local stripped = objName:lower():gsub("twisted",""):gsub("^%s+",""):gsub("%s+$","")
+    for _, m in ipairs(MONSTER_GUIDE) do
+        if m.name:lower():find(stripped) or stripped:find(m.name:lower()) then
+            return m.id
+        end
     end
-    local lines={
-        '<font color="#64DC78">💊 Medkit: '..med..'</font>',
-        '<font color="#00DCDC">🩹 Bandage: '..ban..'</font>',
-        '<font color="#FF6464">👾 Twisteds:</font>',
-    }
-    if #entries==0 then table.insert(lines,'  <font color="#AAAAAA">None</font>')
-    else for _,e in ipairs(entries) do table.insert(lines,e) end end
-    infoBody.Text=table.concat(lines,"\n")
-    infoHud.Size=UDim2.new(0,200,0,26+(#lines*18)+8)
+    return "0"
 end
 
-local function buildInfoHud()
-    if infoHud then
-        infoHudVisible=not infoHudVisible; infoHud.Visible=infoHudVisible; return
+-- Rebuild monster detector cards based on current map
+local function rebuildMonsterDetector()
+    if not monsterDetectorSF then return end
+    -- Clear old cards
+    for _, c in ipairs(monsterDetectorSF:GetChildren()) do
+        if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
+            c:Destroy()
+        end
     end
-    infoHud=Instance.new("Frame"); infoHud.Name="MonsterInfoHud"
-    infoHud.Size=UDim2.new(0,200,0,130); infoHud.Position=UDim2.new(0,4,0,8)
-    infoHud.BackgroundColor3=Color3.fromRGB(12,12,20); infoHud.BorderSizePixel=0
-    infoHud.Visible=true; infoHud.Parent=screenGui
-    makeCorner(infoHud,8); makeStroke(infoHud,Color3.fromRGB(55,55,100),1.2,0)
+    local map = getMap()
+    if not map then return end
+    local mf = map:FindFirstChild("Monsters")
+    if not mf then return end
 
-    local hdr=Instance.new("Frame"); hdr.Size=UDim2.new(1,0,0,24)
-    hdr.BackgroundColor3=Color3.fromRGB(20,20,36); hdr.BorderSizePixel=0
-    hdr.Parent=infoHud; makeCorner(hdr,8)
-    local hp=Instance.new("Frame"); hp.Size=UDim2.new(1,0,0.5,0)
-    hp.Position=UDim2.new(0,0,0.5,0); hp.BackgroundColor3=Color3.fromRGB(20,20,36)
-    hp.BorderSizePixel=0; hp.Parent=hdr
-    local hLbl=Instance.new("TextLabel"); hLbl.Size=UDim2.new(1,-8,1,0)
-    hLbl.Position=UDim2.new(0,8,0,0); hLbl.BackgroundTransparency=1
-    hLbl.Text="📌 Map Info"; hLbl.TextColor3=Color3.fromRGB(180,200,255)
-    hLbl.Font=Enum.Font.FredokaOne; hLbl.TextSize=12
-    hLbl.TextXAlignment=Enum.TextXAlignment.Left; hLbl.Parent=hdr
+    local GUIDE_RAINBOW = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
+    local GUIDE_PINK    = {"Bassie","Flyte","Cocoa","Eggson"}
+    local GUIDE_SQUIRM  = {"Squirm"}
+    local function isGRainbow(n) for _,k in ipairs(GUIDE_RAINBOW) do if n:lower():find(k:lower()) then return true end end return false end
+    local function isGPink(n)    for _,k in ipairs(GUIDE_PINK)    do if n:lower():find(k:lower()) then return true end end return false end
+    local function isGSquirm(n)  for _,k in ipairs(GUIDE_SQUIRM)  do if n:lower():find(k:lower()) then return true end end return false end
 
-    infoBody=Instance.new("TextLabel"); infoBody.Size=UDim2.new(1,-12,1,-30)
-    infoBody.Position=UDim2.new(0,8,0,26); infoBody.BackgroundTransparency=1
-    infoBody.Font=Enum.Font.FredokaOne; infoBody.TextSize=12
-    infoBody.TextXAlignment=Enum.TextXAlignment.Left
-    infoBody.TextYAlignment=Enum.TextYAlignment.Top
-    infoBody.TextWrapped=true; infoBody.RichText=true; infoBody.Parent=infoHud
+    local rainbowStrokes = {}
+    local pinkStrokes    = {}
+    local squirmStrokes  = {}
 
-    local chatPanel=Instance.new("Frame"); chatPanel.Name="ChatPanel"
-    chatPanel.Size=UDim2.new(0,200,0,168); chatPanel.Position=UDim2.new(0,4,0,148)
-    chatPanel.BackgroundColor3=Color3.fromRGB(12,12,20); chatPanel.BorderSizePixel=0
-    chatPanel.Parent=screenGui
-    makeCorner(chatPanel,8); makeStroke(chatPanel,Color3.fromRGB(55,55,100),1.2,0)
+    for i, obj in ipairs(mf:GetChildren()) do
+        local card = Instance.new("Frame")
+        card.Size             = UDim2.new(0, 80, 0, 100)
+        card.BackgroundColor3 = Color3.fromRGB(22, 24, 40)
+        card.BorderSizePixel  = 0
+        card.LayoutOrder      = i
+        card.Parent           = monsterDetectorSF
+        makeCorner(card, 6)
 
-    local cHdr=Instance.new("Frame"); cHdr.Size=UDim2.new(1,0,0,24)
-    cHdr.BackgroundColor3=Color3.fromRGB(20,20,36); cHdr.BorderSizePixel=0
-    cHdr.Parent=chatPanel; makeCorner(cHdr,8)
-    local cHdrP=Instance.new("Frame"); cHdrP.Size=UDim2.new(1,0,0.5,0)
-    cHdrP.Position=UDim2.new(0,0,0.5,0); cHdrP.BackgroundColor3=Color3.fromRGB(20,20,36)
-    cHdrP.BorderSizePixel=0; cHdrP.Parent=cHdr
-    local cLbl=Instance.new("TextLabel"); cLbl.Size=UDim2.new(1,-28,1,0)
-    cLbl.Position=UDim2.new(0,8,0,0); cLbl.BackgroundTransparency=1
-    cLbl.Text="💬 Auto Chat"; cLbl.TextColor3=Color3.fromRGB(180,200,255)
-    cLbl.Font=Enum.Font.FredokaOne; cLbl.TextSize=12
-    cLbl.TextXAlignment=Enum.TextXAlignment.Left; cLbl.Parent=cHdr
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5; stroke.Transparency = 0; stroke.Parent = card
+        if isGRainbow(obj.Name) then stroke.Color=Color3.fromRGB(255,0,0); table.insert(rainbowStrokes,stroke)
+        elseif isGPink(obj.Name) then stroke.Color=Color3.fromRGB(255,105,180); table.insert(pinkStrokes,stroke)
+        elseif isGSquirm(obj.Name) then stroke.Color=Color3.fromRGB(255,140,0); table.insert(squirmStrokes,stroke)
+        else stroke.Color=Color3.fromRGB(55,55,85) end
 
-    local chatExpanded=true
-    local colBtn=Instance.new("TextButton"); colBtn.Size=UDim2.new(0,24,0,24)
-    colBtn.Position=UDim2.new(1,-26,0,0); colBtn.BackgroundTransparency=1
-    colBtn.Text="▲"; colBtn.TextColor3=Color3.fromRGB(150,160,210)
-    colBtn.Font=Enum.Font.FredokaOne; colBtn.TextSize=11
-    colBtn.BorderSizePixel=0; colBtn.AutoButtonColor=false; colBtn.Parent=cHdr
+        local img = Instance.new("ImageLabel")
+        img.Size=UDim2.new(1,-8,0,70); img.Position=UDim2.new(0,4,0,4)
+        img.BackgroundColor3=Color3.fromRGB(14,14,22); img.BorderSizePixel=0
+        img.Image="rbxassetid://"..getHeadshotForObj(obj.Name)
+        img.ScaleType=Enum.ScaleType.Fit; img.Parent=card; makeCorner(img,4)
 
-    local cBody=Instance.new("Frame"); cBody.Size=UDim2.new(1,-10,1,-30)
-    cBody.Position=UDim2.new(0,5,0,28); cBody.BackgroundTransparency=1; cBody.Parent=chatPanel
-    local cLayout=Instance.new("UIListLayout")
-    cLayout.SortOrder=Enum.SortOrder.LayoutOrder; cLayout.Padding=UDim.new(0,4); cLayout.Parent=cBody
+        local lbl = Instance.new("TextLabel")
+        lbl.Size=UDim2.new(1,-4,0,24); lbl.Position=UDim2.new(0,2,1,-26)
+        lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.FredokaOne; lbl.TextSize=9
+        lbl.TextColor3=Color3.fromRGB(200,210,240); lbl.TextWrapped=true
+        lbl.TextXAlignment=Enum.TextXAlignment.Center; lbl.TextScaled=false
+        lbl.Text=getDisplayName(obj.Name):gsub("Twisted ",""); lbl.Parent=card
+    end
 
-    local function makeCBtn(txt,col,order,fn)
-        local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,24)
-        b.BackgroundColor3=col; b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
-        b.TextSize=11; b.Text=txt; b.BorderSizePixel=0; b.AutoButtonColor=false
-        b.LayoutOrder=order; b.Parent=cBody; makeCorner(b,6)
-        makeStroke(b,Color3.fromRGB(80,80,120),1,0.5)
+    -- Animate strokes
+    local rT,pT=0,0
+    RunService.Heartbeat:Connect(function(dt)
+        if not monsterDetectorSF or not monsterDetectorSF.Parent then return end
+        rT=(rT+dt*1.5)%1; pT=(pT+dt*1.2)%1
+        if #rainbowStrokes>0 then
+            local col=Color3.fromHSV(rT,1,1)
+            for _,s in ipairs(rainbowStrokes) do pcall(function() s.Color=col end) end
+        end
+        if #pinkStrokes>0 then
+            local t=math.abs(math.sin(pT*math.pi))
+            local col=Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255),t)
+            for _,s in ipairs(pinkStrokes) do pcall(function() s.Color=col end) end
+        end
+        if #squirmStrokes>0 then
+            local t=math.abs(math.sin(pT*math.pi))
+            local col=Color3.fromRGB(255,140,0):Lerp(Color3.fromRGB(255,255,255),t)
+            for _,s in ipairs(squirmStrokes) do pcall(function() s.Color=col end) end
+        end
+    end)
+end
+
+local function makeHudGradient(parent)
+    local g=Instance.new("UIGradient")
+    g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(26,26,26)),ColorSequenceKeypoint.new(1,Color3.fromRGB(84,84,84))})
+    g.Rotation=90; g.Parent=parent
+end
+
+local function buildLatestHud()
+    if latestHud then
+        infoHudVisible=not infoHudVisible
+        latestHud.Visible=infoHudVisible
+        return
+    end
+
+    -- LatestHud main frame
+    latestHud=Instance.new("ImageLabel"); latestHud.Name="LatestHud"
+    latestHud.AnchorPoint=Vector2.new(0.5,0.5)
+    latestHud.BackgroundColor3=Color3.fromRGB(255,255,255); latestHud.BorderSizePixel=0
+    latestHud.Position=UDim2.new(0.901608825,0,0.0947506055,0)
+    latestHud.Size=UDim2.new(0.180822685,0,0.162021279,0)
+    latestHud.ZIndex=2; latestHud.Image="rbxassetid://6794283750"
+    latestHud.ImageTransparency=0.89; latestHud.ScaleType=Enum.ScaleType.Tile
+    latestHud.Visible=true; latestHud.Parent=screenGui
+    makeHudGradient(latestHud); makeCorner(latestHud,8)
+
+    -- Header label
+    local hdrLbl=Instance.new("TextLabel"); hdrLbl.BackgroundTransparency=1
+    hdrLbl.Size=UDim2.new(1,-8,0,0); hdrLbl.Size=UDim2.new(0,200,0,22)
+    hdrLbl.Position=UDim2.new(0,6,0,2); hdrLbl.ZIndex=4
+    hdrLbl.Font=Enum.Font.FredokaOne; hdrLbl.Text="Map Info - Monster Detector"
+    hdrLbl.TextColor3=Color3.fromRGB(255,255,255); hdrLbl.TextScaled=true
+    hdrLbl.TextStrokeTransparency=0; hdrLbl.TextWrapped=true
+    hdrLbl.TextXAlignment=Enum.TextXAlignment.Left; hdrLbl.Parent=latestHud
+
+    -- Hide button
+    local hideBtn=Instance.new("TextButton"); hideBtn.AnchorPoint=Vector2.new(0.5,0.5)
+    hideBtn.BackgroundColor3=Color3.fromRGB(56,53,100); hideBtn.BorderSizePixel=0
+    hideBtn.Position=UDim2.new(0.863566995,0,0.0734933838,0)
+    hideBtn.Size=UDim2.new(0.216582432,0,0.144661114,0); hideBtn.ZIndex=4
+    hideBtn.Font=Enum.Font.FredokaOne; hideBtn.Text="Hide"
+    hideBtn.TextColor3=Color3.fromRGB(255,255,255); hideBtn.TextScaled=true
+    hideBtn.TextStrokeTransparency=0; hideBtn.TextWrapped=true
+    hideBtn.Parent=latestHud; makeCorner(hideBtn,6)
+
+    -- Monster Detector (horizontal scroll)
+    monsterDetectorSF=Instance.new("ScrollingFrame"); monsterDetectorSF.Name="MonsterDetector"
+    monsterDetectorSF.Active=true; monsterDetectorSF.AnchorPoint=Vector2.new(0.5,0.5)
+    monsterDetectorSF.BackgroundColor3=Color3.fromRGB(12,11,26); monsterDetectorSF.BorderSizePixel=0
+    monsterDetectorSF.Position=UDim2.new(0.499132574,0,0.481746823,0)
+    monsterDetectorSF.Size=UDim2.new(0.987698555,0,0.590472162,0)
+    monsterDetectorSF.CanvasSize=UDim2.new(0,0,0,0)
+    monsterDetectorSF.AutomaticCanvasSize=Enum.AutomaticSize.X
+    monsterDetectorSF.ScrollBarThickness=1
+    monsterDetectorSF.ScrollingDirection=Enum.ScrollingDirection.X
+    monsterDetectorSF.Parent=latestHud; makeCorner(monsterDetectorSF,6)
+    local mdLayout=Instance.new("UIListLayout"); mdLayout.FillDirection=Enum.FillDirection.Horizontal
+    mdLayout.SortOrder=Enum.SortOrder.LayoutOrder; mdLayout.Padding=UDim.new(0,4)
+    mdLayout.VerticalAlignment=Enum.VerticalAlignment.Center; mdLayout.Parent=monsterDetectorSF
+    local mdPad=Instance.new("UIPadding"); mdPad.PaddingLeft=UDim.new(0,4)
+    mdPad.PaddingRight=UDim.new(0,4); mdPad.PaddingTop=UDim.new(0,4)
+    mdPad.PaddingBottom=UDim.new(0,4); mdPad.Parent=monsterDetectorSF
+
+    -- Item Detector panel
+    local itemDet=Instance.new("ImageLabel"); itemDet.Name="ItemDetector"
+    itemDet.AnchorPoint=Vector2.new(0.5,0.5); itemDet.BackgroundColor3=Color3.fromRGB(255,255,255)
+    itemDet.BorderSizePixel=0; itemDet.Position=UDim2.new(-0.196727157,0,0.502733231,0)
+    itemDet.Size=UDim2.new(0.279075623,0,0.994533598,0); itemDet.ZIndex=2
+    itemDet.Image="rbxassetid://6794283750"; itemDet.ImageTransparency=0.89
+    itemDet.ScaleType=Enum.ScaleType.Tile; itemDet.Parent=latestHud
+    makeHudGradient(itemDet); makeCorner(itemDet,8)
+
+    local itemHdr=Instance.new("TextLabel"); itemHdr.BackgroundTransparency=1
+    itemHdr.Size=UDim2.new(0,200,0,22); itemHdr.ZIndex=4
+    itemHdr.Font=Enum.Font.FredokaOne; itemHdr.Text="Item Detector"
+    itemHdr.TextColor3=Color3.fromRGB(255,255,255); itemHdr.TextScaled=true
+    itemHdr.TextStrokeTransparency=0; itemHdr.TextWrapped=true
+    itemHdr.TextXAlignment=Enum.TextXAlignment.Left; itemHdr.Parent=itemDet
+
+    local mkName=Instance.new("TextLabel"); mkName.Name="MedkitName"
+    mkName.AnchorPoint=Vector2.new(0.5,0.5); mkName.BackgroundTransparency=1
+    mkName.Position=UDim2.new(0.499264956,0,0.235503942,0)
+    mkName.Size=UDim2.new(1.00147808,0,0.133965284,0); mkName.ZIndex=4
+    mkName.Font=Enum.Font.FredokaOne; mkName.Text="MEDKIT:"
+    mkName.TextColor3=Color3.fromRGB(255,255,255); mkName.TextScaled=true
+    mkName.TextStrokeTransparency=0; mkName.TextWrapped=true; mkName.Parent=itemDet
+
+    medkitAmountLbl=Instance.new("TextLabel"); medkitAmountLbl.Name="MedkitAmount"
+    medkitAmountLbl.AnchorPoint=Vector2.new(0.5,0.5); medkitAmountLbl.BackgroundTransparency=1
+    medkitAmountLbl.Position=UDim2.new(0.490381628,0,0.430887669,0)
+    medkitAmountLbl.Size=UDim2.new(0.5,0,0.247033015,0); medkitAmountLbl.ZIndex=4
+    medkitAmountLbl.Font=Enum.Font.FredokaOne; medkitAmountLbl.Text="0"
+    medkitAmountLbl.TextColor3=Color3.fromRGB(255,255,255); medkitAmountLbl.TextScaled=true
+    medkitAmountLbl.TextStrokeTransparency=0; medkitAmountLbl.TextWrapped=true
+    medkitAmountLbl.Parent=itemDet
+
+    local banName=Instance.new("TextLabel"); banName.Name="BandageName"
+    banName.AnchorPoint=Vector2.new(0.5,0.5); banName.BackgroundTransparency=1
+    banName.Position=UDim2.new(0.499265641,0,0.631811023,0)
+    banName.Size=UDim2.new(1.00147831,0,0.28284505,0); banName.ZIndex=4
+    banName.Font=Enum.Font.FredokaOne; banName.Text="BANDAGE:"
+    banName.TextColor3=Color3.fromRGB(39,251,255); banName.TextScaled=true
+    banName.TextStrokeColor3=Color3.fromRGB(27,80,130); banName.TextStrokeTransparency=0
+    banName.TextWrapped=true; banName.Parent=itemDet
+
+    bandageAmountLbl=Instance.new("TextLabel"); bandageAmountLbl.Name="BandageAmount"
+    bandageAmountLbl.AnchorPoint=Vector2.new(0.5,0.5); bandageAmountLbl.BackgroundTransparency=1
+    bandageAmountLbl.Position=UDim2.new(0.490381628,0,0.821879268,0)
+    bandageAmountLbl.Size=UDim2.new(0.5,0,0.247033015,0); bandageAmountLbl.ZIndex=4
+    bandageAmountLbl.Font=Enum.Font.FredokaOne; bandageAmountLbl.Text="0"
+    bandageAmountLbl.TextColor3=Color3.fromRGB(255,255,255); bandageAmountLbl.TextScaled=true
+    bandageAmountLbl.TextStrokeTransparency=0; bandageAmountLbl.TextWrapped=true
+    bandageAmountLbl.Parent=itemDet
+
+    -- AutoChat panel
+    local autoChatPanel=Instance.new("ImageLabel"); autoChatPanel.Name="AutoChat"
+    autoChatPanel.AnchorPoint=Vector2.new(0.5,0.5); autoChatPanel.BackgroundColor3=Color3.fromRGB(255,255,255)
+    autoChatPanel.BorderSizePixel=0; autoChatPanel.Position=UDim2.new(0.498547792,0,1.4335016,0)
+    autoChatPanel.Size=UDim2.new(1.00290406,0,0.73805511,0); autoChatPanel.ZIndex=2
+    autoChatPanel.Image="rbxassetid://6794283750"; autoChatPanel.ImageTransparency=0.89
+    autoChatPanel.ScaleType=Enum.ScaleType.Tile; autoChatPanel.Visible=false
+    autoChatPanel.Parent=latestHud; makeHudGradient(autoChatPanel); makeCorner(autoChatPanel,8)
+
+    local acHdr=Instance.new("TextLabel"); acHdr.BackgroundTransparency=1
+    acHdr.Position=UDim2.new(0,4,0,2); acHdr.Size=UDim2.new(0.281423241,0,0.234235615,0); acHdr.ZIndex=4
+    acHdr.Font=Enum.Font.FredokaOne; acHdr.Text="Auto Chat"
+    acHdr.TextColor3=Color3.fromRGB(255,255,255); acHdr.TextScaled=true
+    acHdr.TextStrokeTransparency=0; acHdr.TextWrapped=true
+    acHdr.TextXAlignment=Enum.TextXAlignment.Left; acHdr.Parent=autoChatPanel
+
+    -- Helper to make auto chat buttons
+    local function makeACBtn(txt, px, py, sx, sy, fn)
+        local b=Instance.new("TextButton"); b.AnchorPoint=Vector2.new(0.5,0.5)
+        b.BackgroundColor3=Color3.fromRGB(56,53,100); b.BorderSizePixel=0
+        b.Position=UDim2.new(px,0,py,0); b.Size=UDim2.new(sx,0,sy,0)
+        b.Font=Enum.Font.FredokaOne; b.Text=txt
+        b.TextColor3=Color3.fromRGB(255,255,255); b.TextScaled=true
+        b.TextStrokeTransparency=0; b.TextWrapped=true
+        b.AutoButtonColor=false; b.Parent=autoChatPanel; makeCorner(b,6)
         b.MouseButton1Click:Connect(function() pcall(fn) end)
+        return b
     end
-    makeCBtn("🌈 Main Twisteds",Color3.fromRGB(100,40,130),1,function()
+
+    makeACBtn("Main Twisteds",0.200908929,0.346947342,0.271185458,0.327145934,function()
         local map=getMap(); local names={}
         if map then local mf=map:FindFirstChild("Monsters")
             if mf then for _,o in ipairs(mf:GetChildren()) do
@@ -323,62 +461,89 @@ local function buildInfoHud()
         if #names==0 then sendChat("No Main Twisteds in the Map.")
         else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
     end)
-    makeCBtn("💜 New Twisteds",Color3.fromRGB(80,40,120),2,function()
+    makeACBtn("Event Twisteds",0.207019672,0.743170679,0.271185458,0.327145875,function()
         local map=getMap(); local names={}
         if map then local mf=map:FindFirstChild("Monsters")
             if mf then for _,o in ipairs(mf:GetChildren()) do
                 if isViolet(o.Name) then table.insert(names,getDisplayName(o.Name)) end
             end end end
-        if #names==0 then sendChat("No New Twisteds in the Map.")
+        if #names==0 then sendChat("No Event Twisteds in the Map.")
         else sendChat("Theres "..table.concat(names,", ").." In the Map!") end
     end)
-    makeCBtn("✨ Squirm",Color3.fromRGB(120,90,15),3,function()
-        local map=getMap(); local found=false
+    makeACBtn("Bandages",0.490982264,0.346947342,0.271185458,0.327145934,function()
+        local n=countItems("Bandage")
+        sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Bandages in the Map.")
+    end)
+    makeACBtn("Medkit",0.497093022,0.743170679,0.271185458,0.327145875,function()
+        local n=countItems("HealthKit")
+        sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Medkits in the Map.")
+    end)
+    makeACBtn("Scraps, Goob
+or Both!",0.789671659,0.354690433,0.271185458,0.327145934,function()
+        local map=getMap(); local hasGoob,hasScraps=false,false
         if map then local mf=map:FindFirstChild("Monsters")
             if mf then for _,o in ipairs(mf:GetChildren()) do
-                if isSquirm(o.Name) then found=true; break end
+                local n=o.Name:lower()
+                if n:find("goob")  then hasGoob=true  end
+                if n:find("scraps") then hasScraps=true end
             end end end
-        sendChat(found and "SQUIRM!!!" or "No Mains and No Squirm.")
+        if hasGoob and hasScraps then sendChat("Theres Goob and Scraps in the Map.")
+        elseif hasGoob           then sendChat("Theres Goob in the Map.")
+        elseif hasScraps         then sendChat("Theres Scraps in the Map.")
+        else sendChat("No Goob or Scraps in the Map.") end
     end)
-    makeCBtn("💊 Medkit",Color3.fromRGB(25,85,35),4,function()
-        local n=countItems("HealthKit")
-        sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Band and Medkit.")
-    end)
-    makeCBtn("🩹 Bandage",Color3.fromRGB(15,75,75),5,function()
-        local n=countItems("Bandage")
-        sendChat(n>0 and ("Theres "..n.." Bandage in the Map!") or "No Band and Medkit.")
-    end)
-
-    colBtn.MouseButton1Click:Connect(function()
-        chatExpanded=not chatExpanded; cBody.Visible=chatExpanded
-        colBtn.Text=chatExpanded and "▲" or "▼"
-        chatPanel.Size=UDim2.new(0,200,0,chatExpanded and 168 or 24)
+    makeACBtn("Toon on
+Last Health!!",0.795782387,0.750913799,0.271185458,0.327145875,function()
+        sendChat("A Toon is on their Last Health!!")
     end)
 
-    RunService.Heartbeat:Connect(function()
-        if not infoHud or not infoHud.Visible then chatPanel.Visible=false; return end
-        chatPanel.Visible=true
-        chatPanel.Position=UDim2.new(
-            infoHud.Position.X.Scale,infoHud.Position.X.Offset,
-            infoHud.Position.Y.Scale,infoHud.Position.Y.Offset+infoHud.AbsoluteSize.Y+4)
+    -- Bottom tab buttons: Twisteds / Players / Auto Chat
+    local tabBtnData = {
+        {txt="Twisteds", px=0.16379711,  py=0.89770925, fn=function()
+            autoChatPanel.Visible=false
+            rebuildMonsterDetector()
+        end},
+        {txt="Players",  px=0.500379026, py=0.89770925, fn=function()
+            autoChatPanel.Visible=false
+        end},
+        {txt="Auto Chat",px=0.836960971, py=0.89770925, fn=function()
+            autoChatPanel.Visible=not autoChatPanel.Visible
+        end},
+    }
+    for _, d in ipairs(tabBtnData) do
+        local b=Instance.new("TextButton"); b.AnchorPoint=Vector2.new(0.5,0.5)
+        b.BackgroundColor3=Color3.fromRGB(56,53,100); b.BorderSizePixel=0
+        b.Position=UDim2.new(d.px,0,d.py,0); b.Size=UDim2.new(0.269794106,0,0.204581454,0)
+        b.Font=Enum.Font.FredokaOne; b.Text=d.txt
+        b.TextColor3=Color3.fromRGB(255,255,255); b.TextScaled=true
+        b.TextStrokeTransparency=0; b.TextWrapped=true
+        b.AutoButtonColor=false; b.Parent=latestHud; makeCorner(b,6)
+        b.MouseButton1Click:Connect(function() pcall(d.fn) end)
+    end
+
+    -- Hide button logic
+    hideBtn.MouseButton1Click:Connect(function()
+        infoHudVisible=false; latestHud.Visible=false
     end)
 
-    local drag,ds,ps=false
-    hdr.InputBegan:Connect(function(i)
+    -- Draggable
+    local drag,ds,ps=false,nil,nil
+    latestHud.InputBegan:Connect(function(i)
         if i.UserInputType==Enum.UserInputType.MouseButton1 or
            i.UserInputType==Enum.UserInputType.Touch then
-            drag=true; ds=i.Position; ps=infoHud.Position end end)
+            drag=true; ds=i.Position; ps=latestHud.Position end end)
     UserInputSvc.InputChanged:Connect(function(i)
         if not drag then return end
         if i.UserInputType==Enum.UserInputType.MouseMovement or
            i.UserInputType==Enum.UserInputType.Touch then
             local d=i.Position-ds
-            infoHud.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,ps.Y.Scale,ps.Y.Offset+d.Y) end end)
+            latestHud.Position=UDim2.new(ps.X.Scale,ps.X.Offset+d.X,ps.Y.Scale,ps.Y.Offset+d.Y) end end)
     UserInputSvc.InputEnded:Connect(function(i)
         if i.UserInputType==Enum.UserInputType.MouseButton1 or
            i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
 
-    infoHudVisible=true; refreshInfoHud()
+    infoHudVisible=true
+    rebuildMonsterDetector()
 end
 
 -- ============================================================
@@ -909,7 +1074,7 @@ if scrollFrame then
     refreshNotifySwitch()
 
     makeHeader(scrollFrame,"  HUD",9)
-    makeBtn(scrollFrame,"📌 Map Info + Auto Chat HUD",Color3.fromRGB(40,60,120),10,buildInfoHud)
+    makeBtn(scrollFrame,"📌 Map Info + Auto Chat HUD",Color3.fromRGB(40,60,120),10,buildLatestHud)
     makeHeader(scrollFrame,"  AUTO CHAT",11)
     makeBtn(scrollFrame,"🌈 Main Twisteds",Color3.fromRGB(100,40,130),12,function()
         local map=getMap(); local names={}
@@ -953,7 +1118,12 @@ RunService.Heartbeat:Connect(function(dt)
     if lastRefresh<1.5 then return end
     lastRefresh=0
     refreshMonitor()
-    if infoHudVisible and infoHud and infoHud.Visible then refreshInfoHud() end
+    -- Update item counts and monster detector
+    if infoHudVisible and latestHud and latestHud.Visible then
+        if medkitAmountLbl  then medkitAmountLbl.Text  = tostring(countItems("HealthKit")) end
+        if bandageAmountLbl then bandageAmountLbl.Text = tostring(countItems("Bandage"))   end
+        rebuildMonsterDetector()
+    end
 end)
 
 print("[Tab_Monsters] Loaded.")
