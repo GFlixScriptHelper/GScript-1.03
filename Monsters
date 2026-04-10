@@ -478,8 +478,7 @@ local function buildLatestHud()
         local n=countItems("HealthKit")
         sendChat(n>0 and ("Theres "..n.." Medkit in the Map!") or "No Medkits in the Map.")
     end)
-    makeACBtn("Scraps, Goob
-or Both!",0.789671659,0.354690433,0.271185458,0.327145934,function()
+    makeACBtn("Goob or Scraps",0.789671659,0.354690433,0.271185458,0.327145934,function()
         local map=getMap(); local hasGoob,hasScraps=false,false
         if map then local mf=map:FindFirstChild("Monsters")
             if mf then for _,o in ipairs(mf:GetChildren()) do
@@ -492,8 +491,7 @@ or Both!",0.789671659,0.354690433,0.271185458,0.327145934,function()
         elseif hasScraps         then sendChat("Theres Scraps in the Map.")
         else sendChat("No Goob or Scraps in the Map.") end
     end)
-    makeACBtn("Toon on
-Last Health!!",0.795782387,0.750913799,0.271185458,0.327145875,function()
+    makeACBtn("Last Health!!",0.795782387,0.750913799,0.271185458,0.327145875,function()
         sendChat("A Toon is on their Last Health!!")
     end)
 
@@ -1127,4 +1125,3 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 print("[Tab_Monsters] Loaded.")
-
