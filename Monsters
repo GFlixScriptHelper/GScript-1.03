@@ -224,115 +224,653 @@ local monsterDetectorSF = nil
 local infoHudVisible    = false
 
 -- Headshot lookup from MONSTER_GUIDE (built later, safe to use after it's defined)
+-- Direct keyword → headshot ID lookup (works regardless of game object naming)
+local HEADSHOT_LOOKUP = {
+    astro    = "17615948235",
+    bassie   = "126888077067126",
+    blot     = "95105136839962",
+    bobette  = "125341856238798",
+    boxten   = "17173327545",
+    brightney= "17632349232",
+    brusha   = "121361541898971",
+    coal     = "131591684347264",
+    cocoa    = "131621776719456",
+    connie   = "91802161679934",
+    cosmo    = "18673000387",
+    dandy    = "17515073882",
+    dyle     = "89756984894673",
+    eclipse  = "117268425407246",
+    eggson   = "90676203863684",
+    finn     = "18726780970",
+    flutter  = "18239227410",
+    flyte    = "78483354652017",
+    gigi     = "106223056157959",
+    ginger   = "91212033862550",
+    glisten  = "18818639838",
+    goob     = "17268662964",
+    gourdy   = "77513590902874",
+    looey    = "116451358719686",
+    pebble   = "17011493217",
+    poppy    = "17011493901",
+    razzle   = "17640490166",
+    dazzle   = "17640490166",
+    rebecca  = "108943745948703",
+    rodger   = "17105925417",
+    rudie    = "106888954860502",
+    scraps   = "17572307852",
+    shelly   = "18211657552",
+    shrimpo  = "17583256112",
+    soulvester="112352886297624",
+    sprout   = "18688072034",
+    squirm   = "108443751963686",
+    teagan   = "18194852499",
+    tisha    = "18162886211",
+    toodles  = "17643350074",
+    vee      = "17320166218",
+    yatta    = "92678844815201",
+}
+
 local function getHeadshotForObj(objName)
-    local stripped = objName:lower():gsub("twisted",""):gsub("^%s+",""):gsub("%s+$","")
-    for _, m in ipairs(MONSTER_GUIDE) do
-        if m.name:lower():find(stripped) or stripped:find(m.name:lower()) then
-            return m.id
+    local lower = objName:lower()
+    -- Check each keyword against the object name
+    for keyword, id in pairs(HEADSHOT_LOOKUP) do
+        if lower:find(keyword) then
+            return id
         end
     end
-    return "0"
+    return "17288109998" -- fallback: default Vee headshot
 end
 
 -- Rebuild monster detector cards based on current map
+-- ============================================================
+--  MONSTER TRACKER  (world→screen follower UI)
+-- ============================================================
+local Camera = workspace.CurrentCamera
+local activeTrackers = {}  -- { obj, frame, conn }
+
+local function destroyTracker(entry)
+    pcall(function() entry.frame:Destroy() end)
+    pcall(function() entry.conn:Disconnect() end)
+end
+
+local function clearAllTrackers()
+    for _, e in ipairs(activeTrackers) do destroyTracker(e) end
+    activeTrackers = {}
+end
+
+local function buildTrackerUI(obj, headshotId, displayName)
+    -- Toggle off if already tracking
+    for i, e in ipairs(activeTrackers) do
+        if e.obj == obj then
+            destroyTracker(e)
+            table.remove(activeTrackers, i)
+            return
+        end
+    end
+
+    -- Get initial screen position FIRST before building UI
+    local root = obj:FindFirstChild("HumanoidRootPart")
+              or obj:FindFirstChildOfClass("BasePart")
+    local initSX, initSY = 0.5, 0.5
+    if root then
+        local vp = Camera.ViewportSize
+        local sp, _ = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 4, 0))
+        initSX = math.clamp(sp.X / vp.X, 0.05, 0.92)
+        initSY = math.clamp(sp.Y / vp.Y, 0.05, 0.88)
+    end
+
+    -- Build tracker frame at monster's real position (no center jump)
+    local tracker = Instance.new("Frame")
+    tracker.Name                   = "MonsterTracker"
+    tracker.Size                   = UDim2.new(0, 76, 0, 86)
+    tracker.AnchorPoint            = Vector2.new(0.5, 1)
+    tracker.BackgroundColor3       = Color3.fromRGB(14, 14, 22)
+    tracker.BackgroundTransparency = 0.1
+    tracker.BorderSizePixel        = 0
+    tracker.ZIndex                 = 200
+    -- Start slightly above real position for slide-in
+    tracker.Position               = UDim2.new(initSX, 0, initSY - 0.06, 0)
+    tracker.Parent                 = screenGui
+    makeCorner(tracker, 8)
+    makeStroke(tracker, Color3.fromRGB(100, 120, 255), 1.5, 0)
+
+    local tGrad = Instance.new("UIGradient")
+    tGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 36)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 22)),
+    })
+    tGrad.Rotation = 90; tGrad.Parent = tracker
+
+    local tImg = Instance.new("ImageLabel")
+    tImg.Size              = UDim2.new(0, 58, 0, 58)
+    tImg.Position          = UDim2.new(0.5, -29, 0, 5)
+    tImg.BackgroundColor3  = Color3.fromRGB(10, 10, 20)
+    tImg.BorderSizePixel   = 0
+    tImg.ZIndex            = 201
+    tImg.Image             = "rbxassetid://" .. headshotId
+    tImg.ScaleType         = Enum.ScaleType.Fit
+    tImg.Parent            = tracker
+    makeCorner(tImg, 6)
+
+    local tLbl = Instance.new("TextLabel")
+    tLbl.Size              = UDim2.new(1, -4, 0, 16)
+    tLbl.Position          = UDim2.new(0, 2, 1, -18)
+    tLbl.BackgroundTransparency = 1
+    tLbl.ZIndex            = 201
+    tLbl.Font              = Enum.Font.FredokaOne
+    tLbl.TextSize          = 10
+    tLbl.TextColor3        = Color3.fromRGB(220, 225, 255)
+    tLbl.TextStrokeTransparency = 0
+    tLbl.TextWrapped       = true
+    tLbl.TextXAlignment    = Enum.TextXAlignment.Center
+    tLbl.Text              = displayName:gsub("Twisted ", "")
+    tLbl.Parent            = tracker
+
+    local arrow = Instance.new("TextLabel")
+    arrow.Size              = UDim2.new(0, 20, 0, 14)
+    arrow.Position          = UDim2.new(0.5, -10, 1, 2)
+    arrow.BackgroundTransparency = 1
+    arrow.ZIndex            = 201
+    arrow.Font              = Enum.Font.FredokaOne
+    arrow.TextSize          = 12
+    arrow.TextColor3        = Color3.fromRGB(100, 120, 255)
+    arrow.Text              = "▼"
+    arrow.TextXAlignment    = Enum.TextXAlignment.Center
+    arrow.Parent            = tracker
+
+    -- Slide in from slightly above current position
+    TweenService:Create(tracker, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Position = UDim2.new(initSX, 0, initSY, 0)
+    }):Play()
+
+    -- Track connection — follows monster, auto-cleans if monster gone
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        -- Auto-cleanup if monster despawned
+        if not obj or not obj.Parent then
+            pcall(function() tracker:Destroy() end)
+            pcall(function() conn:Disconnect() end)
+            for i, e in ipairs(activeTrackers) do
+                if e.obj == obj then table.remove(activeTrackers, i); break end
+            end
+            return
+        end
+
+        if not tracker or not tracker.Parent then
+            pcall(function() conn:Disconnect() end)
+            return
+        end
+
+        local r = obj:FindFirstChild("HumanoidRootPart")
+               or obj:FindFirstChildOfClass("BasePart")
+        if not r then return end
+
+        local vp    = Camera.ViewportSize
+        local sp, _ = Camera:WorldToViewportPoint(r.Position + Vector3.new(0, 4, 0))
+
+        -- Convert to 0-1 scale and clamp so it stays on screen
+        local sx = math.clamp(sp.X / vp.X, 0.05, 0.92)
+        local sy = math.clamp(sp.Y / vp.Y, 0.05, 0.88)
+
+        tracker.Position = UDim2.new(sx, 0, sy, 0)
+    end)
+
+    table.insert(activeTrackers, { obj = obj, frame = tracker, conn = conn })
+end
+
+-- Card pixel size — small enough to fit on mobile screens
+local CARD_W = 60
+local CARD_H = 88
+
+local detectorRainbowStrokes = {}
+local detectorPinkStrokes    = {}
+
 local function rebuildMonsterDetector()
     if not monsterDetectorSF then return end
-    -- Clear old cards
+
+    -- Clear old cards only
     for _, c in ipairs(monsterDetectorSF:GetChildren()) do
         if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
             c:Destroy()
         end
     end
+    detectorRainbowStrokes = {}
+    detectorPinkStrokes    = {}
+
     local map = getMap()
     if not map then return end
     local mf = map:FindFirstChild("Monsters")
-    if not mf then return end
+    if not mf or #mf:GetChildren() == 0 then return end
 
     local GUIDE_RAINBOW = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
     local GUIDE_PINK    = {"Bassie","Flyte","Cocoa","Eggson"}
-    local GUIDE_SQUIRM  = {} -- Squirm treated as rainbow/main
-    local function isGRainbow(n) for _,k in ipairs(GUIDE_RAINBOW) do if n:lower():find(k:lower()) then return true end end return false end
-    local function isGPink(n)    for _,k in ipairs(GUIDE_PINK)    do if n:lower():find(k:lower()) then return true end end return false end
-    local function isGSquirm(n)  for _,k in ipairs(GUIDE_SQUIRM)  do if n:lower():find(k:lower()) then return true end end return false end
-
-    local rainbowStrokes = {}
-    local pinkStrokes    = {}
-    local squirmStrokes  = {}
+    local function isGRainbow(n)
+        for _,k in ipairs(GUIDE_RAINBOW) do if n:lower():find(k:lower()) then return true end end
+        return false
+    end
+    local function isGPink(n)
+        for _,k in ipairs(GUIDE_PINK) do if n:lower():find(k:lower()) then return true end end
+        return false
+    end
 
     for i, obj in ipairs(mf:GetChildren()) do
+        local rainbow = isGRainbow(obj.Name)
+        local pink    = isGPink(obj.Name)
+
         local card = Instance.new("Frame")
-        -- Scale card height to fill the MonsterDetector frame
-        card.Size             = UDim2.new(0, 0, 1, -8)  -- height fills parent, width auto
-        card.AutomaticSize    = Enum.AutomaticSize.X
-        card.BackgroundColor3 = Color3.fromRGB(22, 24, 40)
+        card.Size             = UDim2.new(0, CARD_W, 0, CARD_H)
         card.BorderSizePixel  = 0
         card.LayoutOrder      = i
         card.Parent           = monsterDetectorSF
         makeCorner(card, 6)
 
-        -- Inner layout so image + label stack vertically
-        local cardLayout = Instance.new("UIListLayout")
-        cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        cardLayout.Padding   = UDim.new(0, 2)
-        cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        cardLayout.Parent    = card
+        -- Gradient bg: rainbow = purple tint, pink = pink tint, default = dark
+        local cardGrad = Instance.new("UIGradient")
+        if rainbow then
+            cardGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 18, 48)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22)),
+            })
+            card.BackgroundColor3 = Color3.fromRGB(30, 18, 48)
+        elseif pink then
+            cardGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 18, 36)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22)),
+            })
+            card.BackgroundColor3 = Color3.fromRGB(48, 18, 36)
+        else
+            cardGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 28, 44)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22)),
+            })
+            card.BackgroundColor3 = Color3.fromRGB(26, 28, 44)
+        end
+        cardGrad.Rotation = 90; cardGrad.Parent = card
 
-        local cardPad = Instance.new("UIPadding")
-        cardPad.PaddingLeft   = UDim.new(0, 4)
-        cardPad.PaddingRight  = UDim.new(0, 4)
-        cardPad.PaddingTop    = UDim.new(0, 4)
-        cardPad.PaddingBottom = UDim.new(0, 4)
-        cardPad.Parent        = card
-
+        -- Animated stroke
         local stroke = Instance.new("UIStroke")
         stroke.Thickness = 1.5; stroke.Transparency = 0; stroke.Parent = card
-        if isGRainbow(obj.Name) then stroke.Color=Color3.fromRGB(255,0,0); table.insert(rainbowStrokes,stroke)
-        elseif isGPink(obj.Name) then stroke.Color=Color3.fromRGB(255,105,180); table.insert(pinkStrokes,stroke)
-        elseif isGSquirm(obj.Name) then stroke.Color=Color3.fromRGB(255,140,0); table.insert(squirmStrokes,stroke)
-        else stroke.Color=Color3.fromRGB(55,55,85) end
+        if rainbow then
+            stroke.Color = Color3.fromRGB(255, 0, 0)
+            table.insert(detectorRainbowStrokes, stroke)
+        elseif pink then
+            stroke.Color = Color3.fromRGB(255, 105, 180)
+            table.insert(detectorPinkStrokes, stroke)
+        else
+            stroke.Color = Color3.fromRGB(55, 55, 85)
+        end
 
+        -- Headshot image
+        local imgSize = CARD_W - 10
         local img = Instance.new("ImageLabel")
-        img.Size=UDim2.new(1,0,0.75,0); img.LayoutOrder=1
-        img.BackgroundColor3=Color3.fromRGB(14,14,22); img.BorderSizePixel=0
-        img.Image="rbxassetid://"..getHeadshotForObj(obj.Name)
-        img.ScaleType=Enum.ScaleType.Fit; img.Parent=card; makeCorner(img,4)
-        local imgAR = Instance.new("UIAspectRatioConstraint")
-        imgAR.AspectRatio = 1; imgAR.Parent = img
+        img.Size              = UDim2.new(0, imgSize, 0, imgSize)
+        img.Position          = UDim2.new(0.5, -imgSize/2, 0, 4)
+        img.BackgroundColor3  = Color3.fromRGB(10, 10, 18)
+        img.BackgroundTransparency = 0
+        img.BorderSizePixel   = 0
+        img.ZIndex            = 10
+        img.Image             = "rbxassetid://" .. getHeadshotForObj(obj.Name)
+        img.ScaleType         = Enum.ScaleType.Fit
+        img.Parent            = card
+        makeCorner(img, 4)
 
+        -- Name label
+        local nameY = 4 + imgSize + 2
         local lbl = Instance.new("TextLabel")
-        lbl.Size=UDim2.new(1,0,0.2,0); lbl.LayoutOrder=2
-        lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.FredokaOne
-        lbl.TextColor3=Color3.fromRGB(200,210,240); lbl.TextWrapped=true
-        lbl.TextXAlignment=Enum.TextXAlignment.Center; lbl.TextScaled=true
-        lbl.Text=getDisplayName(obj.Name):gsub("Twisted ",""); lbl.Parent=card
-    end
+        lbl.Size              = UDim2.new(1, -2, 0, 12)
+        lbl.Position          = UDim2.new(0, 1, 0, nameY)
+        lbl.BackgroundTransparency = 1
+        lbl.ZIndex            = 10
+        lbl.Font              = Enum.Font.FredokaOne
+        lbl.TextSize          = 7
+        lbl.TextColor3        = Color3.fromRGB(220, 225, 255)
+        lbl.TextWrapped       = true
+        lbl.TextScaled        = false
+        lbl.TextStrokeTransparency = 0.5
+        lbl.TextXAlignment    = Enum.TextXAlignment.Center
+        lbl.Text              = getDisplayName(obj.Name):gsub("Twisted ", "")
+        lbl.Parent            = card
 
-    -- Animate strokes
-    local rT,pT=0,0
-    RunService.Heartbeat:Connect(function(dt)
-        if not monsterDetectorSF or not monsterDetectorSF.Parent then return end
-        rT=(rT+dt*1.5)%1; pT=(pT+dt*1.2)%1
-        if #rainbowStrokes>0 then
-            local col=Color3.fromHSV(rT,1,1)
-            for _,s in ipairs(rainbowStrokes) do pcall(function() s.Color=col end) end
-        end
-        if #pinkStrokes>0 then
-            local t=math.abs(math.sin(pT*math.pi))
-            local col=Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255),t)
-            for _,s in ipairs(pinkStrokes) do pcall(function() s.Color=col end) end
-        end
-        if #squirmStrokes>0 then
-            local t=math.abs(math.sin(pT*math.pi))
-            local col=Color3.fromRGB(255,140,0):Lerp(Color3.fromRGB(255,255,255),t)
-            for _,s in ipairs(squirmStrokes) do pcall(function() s.Color=col end) end
-        end
-    end)
+        -- Clickable overlay
+        local clickBtn = Instance.new("TextButton")
+        clickBtn.Size                = UDim2.new(1, 0, 1, 0)
+        clickBtn.BackgroundTransparency = 1
+        clickBtn.Text                = ""
+        clickBtn.ZIndex              = 20
+        clickBtn.AutoButtonColor     = false
+        clickBtn.Parent              = card
+
+        local tracked = false
+        clickBtn.MouseButton1Click:Connect(function()
+            tracked = not tracked
+            TweenService:Create(card, TweenInfo.new(0.15), {
+                BackgroundColor3 = tracked
+                    and Color3.fromRGB(30, 50, 90)
+                    or  (rainbow and Color3.fromRGB(30,18,48)
+                         or pink and Color3.fromRGB(48,18,36)
+                         or Color3.fromRGB(26,28,44))
+            }):Play()
+            buildTrackerUI(obj, getHeadshotForObj(obj.Name), getDisplayName(obj.Name))
+        end)
+    end
 end
+
+-- Animate detector strokes on heartbeat (one connection, reuses tables)
+local detRainbowT, detPinkT = 0, 0
+RunService.Heartbeat:Connect(function(dt)
+    detRainbowT = (detRainbowT + dt * 1.5) % 1
+    detPinkT    = (detPinkT    + dt * 1.2) % 1
+    if #detectorRainbowStrokes > 0 then
+        local col = Color3.fromHSV(detRainbowT, 1, 1)
+        for _, s in ipairs(detectorRainbowStrokes) do pcall(function() s.Color = col end) end
+    end
+    if #detectorPinkStrokes > 0 then
+        local t   = math.abs(math.sin(detPinkT * math.pi))
+        local col = Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255), t)
+        for _, s in ipairs(detectorPinkStrokes) do pcall(function() s.Color = col end) end
+    end
+end)
 
 local function makeHudGradient(parent)
     local g=Instance.new("UIGradient")
     g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(26,26,26)),ColorSequenceKeypoint.new(1,Color3.fromRGB(84,84,84))})
     g.Rotation=90; g.Parent=parent
+end
+
+
+-- ============================================================
+--  TOON HEADSHOT IDs  (playable characters, same order as toons)
+-- ============================================================
+local TOON_HEADSHOTS = {
+    -- Dandy and Dyle are unplayable, excluded
+    Astro              = "17476673323",
+    Bassie             = "96195017694730",
+    Blot               = "104323857339769",
+    Bobette            = "79977174778992",
+    Boxten             = "16987982359",
+    Brightney          = "17261224750",
+    Brusha             = "81392832907739",
+    Coal               = "130568522739863",
+    Cocoa              = "96689448192352",
+    Connie             = "133764935822586",
+    Cosmo              = "18595002771",
+    Eclipse            = "82081910592748",
+    Eggson             = "136905973436564",
+    Finn               = "18715594549",
+    Flutter            = "18225864350",
+    Flyte              = "82095952372356",
+    Gigi               = "91815485180492",
+    Ginger             = "87154471381383",
+    Glisten            = "18787102103",
+    Goob               = "17231084415",
+    Gourdy             = "99809413682710",
+    Looey              = "79162966797011",
+    Pebble             = "16882259119",
+    Poppy              = "16882258451",
+    ["Razzle and Dazzle"] = "17450142263",
+    Rebecca            = "94294630559443",
+    Rodger             = "17095240566",
+    Rudie              = "72865471267749",
+    Scraps             = "17552138553",
+    Shelly             = "18199050281",
+    Shrimpo            = "17560978429",
+    Soulvester         = "77290390868770",
+    Sprout             = "18551044543",
+    Squirm             = "126346931597430",
+    Teagan             = "18183438182",
+    Tisha              = "18151696449",
+    Toodles            = "17504379605",
+    Vee                = "17288109998",
+    Yatta              = "138352430225674",
+}
+
+local function getToonHeadshot(charName)
+    if not charName or charName == "" then return "17288109998" end
+    -- Direct match
+    if TOON_HEADSHOTS[charName] then return TOON_HEADSHOTS[charName] end
+    -- Partial match
+    local lower = charName:lower()
+    for name, id in pairs(TOON_HEADSHOTS) do
+        if lower:find(name:lower()) then return id end
+    end
+    return "17288109998" -- fallback Toodles
+end
+
+local function getPlayerCharName(playerModel)
+    local cfg = playerModel:FindFirstChild("Config")
+    if not cfg then return "Unknown" end
+    local cn = cfg:FindFirstChild("CharacterName")
+    if not cn then return "Unknown" end
+    return cn.Value ~= "" and cn.Value or "Unknown"
+end
+
+local function getPlayerHealth(playerModel)
+    local hum = playerModel:FindFirstChildOfClass("Humanoid")
+    if not hum then return 0, 4 end
+    return hum.Health, hum.MaxHealth
+end
+
+local function getHealthColor(hp, maxHp)
+    if maxHp <= 0 or hp <= 0 then return Color3.fromRGB(10, 10, 10) end  -- black = dead
+    -- 4 max: LightBlue(4) > Green(3) > Red(2) > Red(1)
+    -- 3 max: Green(3) > Yellow(2) > Red(1)
+    -- 2 max: Green(2) > Red(1)
+    if maxHp >= 4 then
+        if hp >= 4 then     return Color3.fromRGB(60, 160, 220)  -- light blue
+        elseif hp >= 3 then return Color3.fromRGB(30, 130, 50)   -- green
+        elseif hp >= 2 then return Color3.fromRGB(180, 40, 40)   -- red
+        else                return Color3.fromRGB(180, 40, 40)   -- red
+        end
+    elseif maxHp == 3 then
+        if hp >= 3 then     return Color3.fromRGB(30, 130, 50)   -- green
+        elseif hp >= 2 then return Color3.fromRGB(200, 170, 20)  -- yellow
+        else                return Color3.fromRGB(180, 40, 40)   -- red
+        end
+    else -- maxHp == 2
+        if hp >= 2 then     return Color3.fromRGB(30, 130, 50)   -- green
+        else                return Color3.fromRGB(180, 40, 40)   -- red
+        end
+    end
+end
+
+-- ============================================================
+--  PLAYER DETECTOR
+-- ============================================================
+local playerDetectorSF   = nil
+local playerDetRainbow   = {}
+local playerDetPink      = {}
+local playerDetHpConns   = {}
+local detectorMode       = "monsters" -- "monsters" or "players"
+
+local function clearPlayerDetector()
+    if not playerDetectorSF then return end
+    for _, c in ipairs(playerDetectorSF:GetChildren()) do
+        if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
+            c:Destroy()
+        end
+    end
+    for _, conn in ipairs(playerDetHpConns) do pcall(function() conn:Disconnect() end) end
+    playerDetHpConns = {}
+end
+
+local function rebuildPlayerDetector()
+    if not playerDetectorSF then return end
+    clearPlayerDetector()
+
+    local inGamePlayers = workspace:FindFirstChild("InGamePlayers")
+    if not inGamePlayers then return end
+
+    for i, pModel in ipairs(inGamePlayers:GetChildren()) do
+        local charName   = getPlayerCharName(pModel)
+        local hp, maxHp  = getPlayerHealth(pModel)
+        local headshotId = getToonHeadshot(charName)
+        local hpColor    = getHealthColor(hp, maxHp)
+
+        -- Get display name from Players service
+        local displayName = charName
+        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+            if plr.Name == pModel.Name or plr.DisplayName == pModel.Name then
+                displayName = plr.DisplayName
+                break
+            end
+        end
+
+        local card = Instance.new("Frame")
+        card.Size             = UDim2.new(0, CARD_W, 0, CARD_H)
+        card.BorderSizePixel  = 0
+        card.LayoutOrder      = i
+        card.Parent           = playerDetectorSF
+        makeCorner(card, 6)
+
+        -- Gradient bg shifts with health color
+        local cardGrad = Instance.new("UIGradient")
+        cardGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, hpColor),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 22)),
+        })
+        cardGrad.Rotation = 90; cardGrad.Parent = card
+        card.BackgroundColor3 = hpColor
+
+        -- Health-colored stroke (updates live)
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5; stroke.Transparency = 0
+        stroke.Color     = hpColor
+        stroke.Parent    = card
+
+        -- Toon headshot
+        local imgSize = CARD_W - 10
+        local img = Instance.new("ImageLabel")
+        img.Size              = UDim2.new(0, imgSize, 0, imgSize)
+        img.Position          = UDim2.new(0.5, -imgSize/2, 0, 4)
+        img.BackgroundColor3  = Color3.fromRGB(10, 10, 18)
+        img.BackgroundTransparency = 0
+        img.BorderSizePixel   = 0
+        img.ZIndex            = 10
+        img.Image             = "rbxassetid://" .. headshotId
+        img.ScaleType         = Enum.ScaleType.Fit
+        img.Parent            = card
+        makeCorner(img, 4)
+
+        -- Toon/char name
+        local nameY = 4 + imgSize + 2
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size              = UDim2.new(1, -2, 0, 11)
+        nameLbl.Position          = UDim2.new(0, 1, 0, nameY)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.ZIndex            = 10
+        nameLbl.Font              = Enum.Font.FredokaOne
+        nameLbl.TextSize          = 7
+        nameLbl.TextColor3        = Color3.fromRGB(180, 220, 255)
+        nameLbl.TextWrapped       = true
+        nameLbl.TextScaled        = false
+        nameLbl.TextStrokeTransparency = 0.5
+        nameLbl.TextXAlignment    = Enum.TextXAlignment.Center
+        nameLbl.Text              = charName
+        nameLbl.Parent            = card
+
+        -- Display name (smaller, below toon name)
+        local dispY = nameY + 12
+        local dispLbl = Instance.new("TextLabel")
+        dispLbl.Size              = UDim2.new(1, -2, 0, 10)
+        dispLbl.Position          = UDim2.new(0, 1, 0, dispY)
+        dispLbl.BackgroundTransparency = 1
+        dispLbl.ZIndex            = 10
+        dispLbl.Font              = Enum.Font.FredokaOne
+        dispLbl.TextSize          = 6
+        dispLbl.TextColor3        = Color3.fromRGB(160, 160, 200)
+        dispLbl.TextWrapped       = true
+        dispLbl.TextScaled        = false
+        dispLbl.TextStrokeTransparency = 0.7
+        dispLbl.TextXAlignment    = Enum.TextXAlignment.Center
+        dispLbl.Text              = "@" .. displayName
+        dispLbl.Parent            = card
+
+        -- Health hearts row at bottom
+        local hpY = dispY + 11
+        local hearts = math.max(0, math.floor(hp))
+        local empty  = math.max(0, maxHp - hearts)
+        local hpLbl = Instance.new("TextLabel")
+        hpLbl.Size              = UDim2.new(1, -2, 0, 10)
+        hpLbl.Position          = UDim2.new(0, 1, 0, hpY)
+        hpLbl.BackgroundTransparency = 1
+        hpLbl.ZIndex            = 10
+        hpLbl.Font              = Enum.Font.FredokaOne
+        hpLbl.TextSize          = 7
+        hpLbl.TextColor3        = hpColor
+        hpLbl.TextScaled        = false
+        hpLbl.TextXAlignment    = Enum.TextXAlignment.Center
+        hpLbl.Text              = string.rep("♥", hearts) .. string.rep("♡", empty)
+        hpLbl.Parent            = card
+
+        -- Live updates: stroke + gradient + hearts + death tween
+        local hum = pModel:FindFirstChildOfClass("Humanoid")
+        local function animateDeath()
+            -- Fade card to black and slide up then destroy
+            TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = Color3.fromRGB(5, 5, 5),
+                Position         = UDim2.new(card.Position.X.Scale, card.Position.X.Offset,
+                                             card.Position.Y.Scale, card.Position.Y.Offset - 40),
+            }):Play()
+            TweenService:Create(img, TweenInfo.new(0.4), {
+                ImageTransparency = 1,
+                BackgroundColor3  = Color3.fromRGB(5, 5, 5),
+            }):Play()
+            task.delay(0.5, function()
+                pcall(function() card:Destroy() end)
+            end)
+        end
+
+        if hum then
+            local hpConn = hum:GetPropertyChangedSignal("Health"):Connect(function()
+                local newHp  = hum.Health
+                local newMax = hum.MaxHealth
+                if newHp <= 0 then
+                    pcall(animateDeath)
+                    return
+                end
+                local col = getHealthColor(newHp, newMax)
+                local h   = math.max(0, math.floor(newHp))
+                local e   = math.max(0, newMax - h)
+                pcall(function()
+                    stroke.Color     = col
+                    hpLbl.TextColor3 = col
+                    hpLbl.Text       = string.rep("♥", h) .. string.rep("♡", e)
+                    cardGrad.Color   = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, col),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(14,14,22)),
+                    })
+                end)
+            end)
+            table.insert(playerDetHpConns, hpConn)
+        end
+
+        -- Watch for player leaving (model removed from InGamePlayers)
+        pModel.AncestryChanged:Connect(function(_, parent)
+            if parent == nil then
+                pcall(animateDeath)
+            end
+        end)
+
+        -- Click to track
+        local clickBtn = Instance.new("TextButton")
+        clickBtn.Size                = UDim2.new(1, 0, 1, 0)
+        clickBtn.BackgroundTransparency = 1
+        clickBtn.Text                = ""
+        clickBtn.ZIndex              = 20
+        clickBtn.AutoButtonColor     = false
+        clickBtn.Parent              = card
+
+        local tracked = false
+        clickBtn.MouseButton1Click:Connect(function()
+            tracked = not tracked
+            TweenService:Create(card, TweenInfo.new(0.15), {
+                BackgroundColor3 = tracked
+                    and Color3.fromRGB(20, 50, 80)
+                    or  hpColor
+            }):Play()
+            buildTrackerUI(pModel, headshotId, charName)
+        end)
+    end
 end
 
 local function buildLatestHud()
@@ -385,6 +923,27 @@ local function buildLatestHud()
     monsterDetectorSF.ScrollingDirection=Enum.ScrollingDirection.X
     monsterDetectorSF.Parent=latestHud; makeCorner(monsterDetectorSF,6)
     makeStroke(monsterDetectorSF,Color3.fromRGB(60,60,100),1,0)
+
+    -- Player Detector (same position/size as MonsterDetector, hidden by default)
+    playerDetectorSF=Instance.new("ScrollingFrame"); playerDetectorSF.Name="PlayerDetector"
+    playerDetectorSF.Active=true; playerDetectorSF.AnchorPoint=Vector2.new(0.5,0.5)
+    playerDetectorSF.BackgroundColor3=Color3.fromRGB(12,11,26); playerDetectorSF.BorderSizePixel=0
+    playerDetectorSF.Position=UDim2.new(0.499132574,0,0.481746823,0)
+    playerDetectorSF.Size=UDim2.new(0.987698555,0,0.590472162,0)
+    playerDetectorSF.CanvasSize=UDim2.new(0,0,0,0)
+    playerDetectorSF.AutomaticCanvasSize=Enum.AutomaticSize.X
+    playerDetectorSF.ScrollBarThickness=1
+    playerDetectorSF.ScrollingDirection=Enum.ScrollingDirection.X
+    playerDetectorSF.Visible=false
+    playerDetectorSF.Parent=latestHud; makeCorner(playerDetectorSF,6)
+    makeStroke(playerDetectorSF,Color3.fromRGB(60,60,100),1,0)
+    local pdLayout=Instance.new("UIListLayout"); pdLayout.FillDirection=Enum.FillDirection.Horizontal
+    pdLayout.SortOrder=Enum.SortOrder.LayoutOrder; pdLayout.Padding=UDim.new(0,4)
+    pdLayout.VerticalAlignment=Enum.VerticalAlignment.Center; pdLayout.Parent=playerDetectorSF
+    local pdPad=Instance.new("UIPadding"); pdPad.PaddingLeft=UDim.new(0,4)
+    pdPad.PaddingRight=UDim.new(0,4); pdPad.PaddingTop=UDim.new(0,4)
+    pdPad.PaddingBottom=UDim.new(0,4); pdPad.Parent=playerDetectorSF
+
     local mdLayout=Instance.new("UIListLayout"); mdLayout.FillDirection=Enum.FillDirection.Horizontal
     mdLayout.SortOrder=Enum.SortOrder.LayoutOrder; mdLayout.Padding=UDim.new(0,4)
     mdLayout.VerticalAlignment=Enum.VerticalAlignment.Center; mdLayout.Parent=monsterDetectorSF
@@ -522,10 +1081,25 @@ local function buildLatestHud()
     local tabBtnData = {
         {txt="Twisteds", px=0.16379711,  py=0.89770925, fn=function()
             autoChatPanel.Visible=false
+            detectorMode = "monsters"
+            playerDetectorSF.Visible  = false
+            monsterDetectorSF.Visible = true
             rebuildMonsterDetector()
         end},
         {txt="Players",  px=0.500379026, py=0.89770925, fn=function()
             autoChatPanel.Visible=false
+            if detectorMode == "players" then
+                -- Switch back to monsters
+                detectorMode = "monsters"
+                playerDetectorSF.Visible  = false
+                monsterDetectorSF.Visible = true
+                rebuildMonsterDetector()
+            else
+                detectorMode = "players"
+                monsterDetectorSF.Visible  = false
+                playerDetectorSF.Visible   = true
+                rebuildPlayerDetector()
+            end
         end},
         {txt="Auto Chat",px=0.836960971, py=0.89770925, fn=function()
             autoChatPanel.Visible=not autoChatPanel.Visible
