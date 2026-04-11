@@ -261,12 +261,28 @@ local function rebuildMonsterDetector()
 
     for i, obj in ipairs(mf:GetChildren()) do
         local card = Instance.new("Frame")
-        card.Size             = UDim2.new(0, 80, 0, 100)
+        -- Scale card height to fill the MonsterDetector frame
+        card.Size             = UDim2.new(0, 0, 1, -8)  -- height fills parent, width auto
+        card.AutomaticSize    = Enum.AutomaticSize.X
         card.BackgroundColor3 = Color3.fromRGB(22, 24, 40)
         card.BorderSizePixel  = 0
         card.LayoutOrder      = i
         card.Parent           = monsterDetectorSF
         makeCorner(card, 6)
+
+        -- Inner layout so image + label stack vertically
+        local cardLayout = Instance.new("UIListLayout")
+        cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        cardLayout.Padding   = UDim.new(0, 2)
+        cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        cardLayout.Parent    = card
+
+        local cardPad = Instance.new("UIPadding")
+        cardPad.PaddingLeft   = UDim.new(0, 4)
+        cardPad.PaddingRight  = UDim.new(0, 4)
+        cardPad.PaddingTop    = UDim.new(0, 4)
+        cardPad.PaddingBottom = UDim.new(0, 4)
+        cardPad.Parent        = card
 
         local stroke = Instance.new("UIStroke")
         stroke.Thickness = 1.5; stroke.Transparency = 0; stroke.Parent = card
@@ -276,16 +292,18 @@ local function rebuildMonsterDetector()
         else stroke.Color=Color3.fromRGB(55,55,85) end
 
         local img = Instance.new("ImageLabel")
-        img.Size=UDim2.new(1,-8,0,70); img.Position=UDim2.new(0,4,0,4)
+        img.Size=UDim2.new(1,0,0.75,0); img.LayoutOrder=1
         img.BackgroundColor3=Color3.fromRGB(14,14,22); img.BorderSizePixel=0
         img.Image="rbxassetid://"..getHeadshotForObj(obj.Name)
         img.ScaleType=Enum.ScaleType.Fit; img.Parent=card; makeCorner(img,4)
+        local imgAR = Instance.new("UIAspectRatioConstraint")
+        imgAR.AspectRatio = 1; imgAR.Parent = img
 
         local lbl = Instance.new("TextLabel")
-        lbl.Size=UDim2.new(1,-4,0,24); lbl.Position=UDim2.new(0,2,1,-26)
-        lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.FredokaOne; lbl.TextSize=9
+        lbl.Size=UDim2.new(1,0,0.2,0); lbl.LayoutOrder=2
+        lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.FredokaOne
         lbl.TextColor3=Color3.fromRGB(200,210,240); lbl.TextWrapped=true
-        lbl.TextXAlignment=Enum.TextXAlignment.Center; lbl.TextScaled=false
+        lbl.TextXAlignment=Enum.TextXAlignment.Center; lbl.TextScaled=true
         lbl.Text=getDisplayName(obj.Name):gsub("Twisted ",""); lbl.Parent=card
     end
 
