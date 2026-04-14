@@ -1,178 +1,176 @@
 -- ============================================================
---  Tab_Options.lua  |  UI Resize, Keybinds, Mobile Fix
+--  Tab_Options.lua  |  UI Resize, Keybinds, Settings
 -- ============================================================
-
+local Players      = game:GetService("Players")
 local UserInputSvc = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui      = game:GetService("CoreGui")
 
-local screenGui=nil; local panel=nil; local scrollFrame=nil
-for _=1,100 do
-    screenGui=CoreGui:FindFirstChild("ESPGui")
-    panel=screenGui and screenGui:FindFirstChild("Panel")
-    scrollFrame=panel and panel:FindFirstChild("ScrollOptions")
+local screenGui   = nil
+local panel       = nil
+local scrollFrame = nil
+
+for _ = 1, 100 do
+    screenGui   = CoreGui:FindFirstChild("ESPGui")
+    panel       = screenGui and screenGui:FindFirstChild("Panel")
+    scrollFrame = panel and panel:FindFirstChild("ScrollOptions", true)
     if scrollFrame then break end
     task.wait(0.1)
 end
-if not scrollFrame then
-    warn("[Tab_Options.lua] ScrollOptions not found after 10s")
-else
-    task.wait(0.3)
-end
+if not scrollFrame then warn("[Tab_Options] ScrollOptions not found") return end
+task.wait(0.3)
 
 -- ============================================================
 --  HELPERS
 -- ============================================================
 local function makeCorner(p, r)
-    local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 8); c.Parent = p
 end
 local function makeStroke(p, col, th, trans)
-    local s=Instance.new("UIStroke")
-    s.Color=col or Color3.fromRGB(60,60,90); s.Thickness=th or 1
-    s.Transparency=trans or 0; s.Parent=p
+    local s = Instance.new("UIStroke")
+    s.Color = col or Color3.fromRGB(60,60,90); s.Thickness = th or 1
+    s.Transparency = trans or 0; s.Parent = p
 end
-local WHITE=Color3.fromRGB(255,255,255)
-
 local function makeHeader(txt, order)
-    local f=Instance.new("Frame")
-    f.Size=UDim2.new(1,-4,0,24); f.BackgroundTransparency=1
-    f.LayoutOrder=order; f.Parent=scrollFrame
-    local accent=Instance.new("Frame")
-    accent.Size=UDim2.new(0,3,0,14); accent.Position=UDim2.new(0,2,0.5,-7)
-    accent.BackgroundColor3=Color3.fromRGB(100,120,255); accent.BorderSizePixel=0
-    accent.Parent=f; makeCorner(accent,2)
-    local l=Instance.new("TextLabel")
-    l.Size=UDim2.new(1,-14,1,0); l.Position=UDim2.new(0,12,0,0)
-    l.BackgroundTransparency=1; l.Text=txt
-    l.TextColor3=Color3.fromRGB(160,170,220); l.Font=Enum.Font.FredokaOne
-    l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,-4,0,24); f.BackgroundTransparency = 1
+    f.LayoutOrder = order; f.Parent = scrollFrame
+    local accent = Instance.new("Frame")
+    accent.Size = UDim2.new(0,3,0,14); accent.Position = UDim2.new(0,2,0.5,-7)
+    accent.BackgroundColor3 = Color3.fromRGB(100,120,255); accent.BorderSizePixel = 0
+    accent.Parent = f; makeCorner(accent,2)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-14,1,0); l.Position = UDim2.new(0,12,0,0)
+    l.BackgroundTransparency = 1; l.Text = txt
+    l.TextColor3 = Color3.fromRGB(160,170,220); l.Font = Enum.Font.FredokaOne
+    l.TextSize = 12; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
 end
-
+local function makeGrid(order)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,-4,0,0); f.AutomaticSize = Enum.AutomaticSize.Y
+    f.BackgroundTransparency = 1; f.BorderSizePixel = 0
+    f.LayoutOrder = order; f.Parent = scrollFrame
+    local g = Instance.new("UIGridLayout")
+    g.CellSize = UDim2.new(0.5,-4,0,52); g.CellPadding = UDim2.new(0,4,0,4)
+    g.SortOrder = Enum.SortOrder.LayoutOrder; g.Parent = f
+    return f
+end
+local function makeToggle(parent, label, color, onToggle)
+    local row = Instance.new("Frame")
+    row.BackgroundColor3 = Color3.fromRGB(18,20,34); row.BorderSizePixel = 0
+    row.Size = UDim2.new(1,0,1,0); row.Parent = parent
+    makeCorner(row,8); makeStroke(row, Color3.fromRGB(45,45,70),1,0)
+    local pill = Instance.new("Frame")
+    pill.Size = UDim2.new(0,4,0,18); pill.Position = UDim2.new(0,6,0.5,-9)
+    pill.BackgroundColor3 = color; pill.BorderSizePixel = 0; pill.Parent = row; makeCorner(pill,3)
+    local swBg = Instance.new("TextButton")
+    swBg.Size = UDim2.new(0,36,0,18); swBg.Position = UDim2.new(1,-42,0.5,-9)
+    swBg.BackgroundColor3 = Color3.fromRGB(40,40,65); swBg.BorderSizePixel = 0
+    swBg.Text = ""; swBg.AutoButtonColor = false; swBg.Parent = row
+    makeCorner(swBg,9); makeStroke(swBg, Color3.fromRGB(60,60,90),1,0)
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0,12,0,12); knob.Position = UDim2.new(0,3,0.5,-6)
+    knob.BackgroundColor3 = Color3.fromRGB(140,140,170); knob.BorderSizePixel = 0
+    knob.Parent = swBg; makeCorner(knob,6)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,-58,1,0); lbl.Position = UDim2.new(0,16,0,0)
+    lbl.BackgroundTransparency = 1; lbl.Text = label
+    lbl.TextColor3 = Color3.fromRGB(210,215,235); lbl.Font = Enum.Font.FredokaOne
+    lbl.TextSize = 12; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = true; lbl.Parent = row
+    local enabled = false
+    local ti = TweenInfo.new(0.15,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+    local function refresh()
+        if enabled then
+            TweenService:Create(swBg,ti,{BackgroundColor3=Color3.fromRGB(60,160,255)}):Play()
+            TweenService:Create(knob,ti,{Position=UDim2.new(0,21,0.5,-6),BackgroundColor3=Color3.fromRGB(255,255,255)}):Play()
+            TweenService:Create(row,ti,{BackgroundColor3=Color3.fromRGB(16,26,48)}):Play()
+        else
+            TweenService:Create(swBg,ti,{BackgroundColor3=Color3.fromRGB(40,40,65)}):Play()
+            TweenService:Create(knob,ti,{Position=UDim2.new(0,3,0.5,-6),BackgroundColor3=Color3.fromRGB(140,140,170)}):Play()
+            TweenService:Create(row,ti,{BackgroundColor3=Color3.fromRGB(18,20,34)}):Play()
+        end
+    end
+    swBg.MouseButton1Click:Connect(function()
+        enabled = not enabled; refresh(); onToggle(enabled)
+    end)
+    refresh()
+end
 local function makeBtn(txt, color, order, fn)
-    local b=Instance.new("TextButton")
-    b.Size=UDim2.new(1,-4,0,34); b.BackgroundColor3=color
-    b.TextColor3=WHITE; b.Font=Enum.Font.FredokaOne
-    b.TextSize=12; b.Text=txt; b.BorderSizePixel=0
-    b.AutoButtonColor=false; b.LayoutOrder=order; b.Parent=scrollFrame
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-4,0,36); b.BackgroundColor3 = color
+    b.TextColor3 = Color3.fromRGB(255,255,255); b.Font = Enum.Font.FredokaOne
+    b.TextSize = 12; b.Text = txt; b.BorderSizePixel = 0
+    b.AutoButtonColor = false; b.LayoutOrder = order; b.Parent = scrollFrame
     makeCorner(b,8); makeStroke(b,Color3.fromRGB(80,80,120),1,0.4)
-    local grad=Instance.new("UIGradient"); grad.Rotation=90
-    grad.Transparency=NumberSequence.new({
-        NumberSequenceKeypoint.new(0,0.85), NumberSequenceKeypoint.new(1,0.95)
-    }); grad.Parent=b
     b.MouseButton1Click:Connect(function() pcall(fn) end)
-    return b
 end
-
 local function makeInfoRow(txt, order)
-    local f=Instance.new("Frame")
-    f.Size=UDim2.new(1,-4,0,30); f.BackgroundColor3=Color3.fromRGB(16,17,30)
-    f.BorderSizePixel=0; f.LayoutOrder=order; f.Parent=scrollFrame
-    makeCorner(f,7); makeStroke(f,Color3.fromRGB(40,40,60),1,0)
-    local l=Instance.new("TextLabel")
-    l.Size=UDim2.new(1,-10,1,0); l.Position=UDim2.new(0,8,0,0)
-    l.BackgroundTransparency=1; l.Text=txt
-    l.TextColor3=Color3.fromRGB(160,170,210); l.Font=Enum.Font.FredokaOne
-    l.TextSize=11; l.TextXAlignment=Enum.TextXAlignment.Left
-    l.TextWrapped=true; l.Parent=f
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,-4,0,32); f.BackgroundColor3 = Color3.fromRGB(14,14,22)
+    f.BorderSizePixel = 0; f.LayoutOrder = order; f.Parent = scrollFrame
+    makeCorner(f,8); makeStroke(f,Color3.fromRGB(45,45,70),1,0)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-12,1,0); l.Position = UDim2.new(0,8,0,0)
+    l.BackgroundTransparency = 1; l.Font = Enum.Font.FredokaOne
+    l.TextSize = 11; l.TextColor3 = Color3.fromRGB(180,185,220)
+    l.TextXAlignment = Enum.TextXAlignment.Left; l.TextWrapped = true
+    l.RichText = true; l.Text = txt; l.Parent = f
 end
 
 -- ============================================================
---  UI SIZES
+--  UI SIZE OPTIONS
 -- ============================================================
-local SIZES={
-    {label="Very Small", w=200, h=320},
-    {label="Small",      w=240, h=360},
-    {label="Medium",     w=268, h=420},
-    {label="Large",      w=320, h=500},
+local SIZES = {
+    Small  = UDim2.new(0.3,  0, 0.6,  0),
+    Medium = UDim2.new(0.4,  0, 0.75, 0),
+    Large  = UDim2.new(0.55, 0, 0.88, 0),
 }
 
--- ============================================================
---  MOBILE SCREEN FIT
--- ============================================================
-local function clampPanelToScreen()
-    if not panel then return end
-    local vp=workspace.CurrentCamera.ViewportSize
-    local ap=panel.AbsolutePosition; local as=panel.AbsoluteSize
-    local newX=math.clamp(ap.X,0,vp.X-as.X)
-    local newY=math.clamp(ap.Y,0,vp.Y-as.Y)
-    panel.Position=UDim2.fromOffset(newX,newY)
-end
-
--- ============================================================
---  KEYBINDS
--- ============================================================
-local menuKeybind=Enum.KeyCode.RightShift
-UserInputSvc.InputBegan:Connect(function(input,gpe)
-    if gpe then return end
-    if input.KeyCode==menuKeybind then
-        local toggleBtn=screenGui:FindFirstChild("ToggleBtn")
-        if toggleBtn then panel.Visible=not panel.Visible end
+local function resizePanel(size)
+    if panel then
+        TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = size
+        }):Play()
     end
-end)
+end
 
 -- ============================================================
 --  BUILD UI
 -- ============================================================
-if scrollFrame then
-    makeHeader("  UI SIZE",1)
+makeHeader("  UI SIZE", 1)
+local g1 = makeGrid(2)
+makeToggle(g1, "Small", Color3.fromRGB(100,160,255), function(on)
+    if on then resizePanel(SIZES.Small) end
+end)
+makeToggle(g1, "Medium (Default)", Color3.fromRGB(60,200,120), function(on)
+    if on then resizePanel(SIZES.Medium) end
+end)
+makeToggle(g1, "Large", Color3.fromRGB(255,140,60), function(on)
+    if on then resizePanel(SIZES.Large) end
+end)
 
-    for i,size in ipairs(SIZES) do
-        local s=size
-        local col = i==3 and Color3.fromRGB(40,60,100) or Color3.fromRGB(24,26,44)
-        makeBtn(s.label.." ("..s.w.."x"..s.h..")",col,i+1,function()
-            if not panel then return end
-            panel.Size=UDim2.new(0,s.w,0,s.h)
-            clampPanelToScreen()
-            local ratio=s.w/268
-            local hudNames={"PlatformHUD","MonsterInfoHUD","ColliderHUD","ChatPanel"}
-            for _,name in ipairs(hudNames) do
-                local hud=screenGui:FindFirstChild(name)
-                if hud then
-                    local newW=math.floor(190*ratio)
-                    local newH=math.floor(hud.AbsoluteSize.Y*ratio)
-                    hud.Size=UDim2.new(0,newW,0,newH)
-                    for _,child in ipairs(hud:GetDescendants()) do
-                        if child:IsA("TextLabel") or child:IsA("TextButton") then
-                            child.TextSize=math.max(8,math.floor(child.TextSize*ratio))
-                        end
-                    end
-                end
-            end
-        end)
-    end
+makeHeader("  OPACITY", 10)
+local g2 = makeGrid(11)
+makeToggle(g2, "More Transparent", Color3.fromRGB(140,140,200), function(on)
+    if panel then panel.ImageTransparency = on and 0.98 or 0.89 end
+end)
+makeToggle(g2, "Less Transparent", Color3.fromRGB(80,80,160), function(on)
+    if panel then panel.ImageTransparency = on and 0.7 or 0.89 end
+end)
 
-    makeHeader("  POSITION",7)
-    makeBtn("📐 Center Panel",Color3.fromRGB(40,50,80),8,function()
-        panel.AnchorPoint=Vector2.new(0,0.5)
-        panel.Position=UDim2.new(0,4,0.5,0)
-    end)
-    makeBtn("📱 Fit to Screen",Color3.fromRGB(40,70,60),9,function()
-        clampPanelToScreen()
-    end)
-    makeBtn("↖ Top Left",Color3.fromRGB(30,35,58),10,function()
-        panel.AnchorPoint=Vector2.new(0,0)
-        panel.Position=UDim2.fromOffset(4,4)
-    end)
-    makeBtn("↗ Top Right",Color3.fromRGB(30,35,58),11,function()
-        panel.AnchorPoint=Vector2.new(1,0)
-        local vp=workspace.CurrentCamera.ViewportSize
-        panel.Position=UDim2.fromOffset(vp.X-4,4)
-    end)
+makeHeader("  KEYBINDS", 20)
+makeInfoRow('<font color="#AAAAFF">RightShift</font>  →  Toggle Menu', 21)
+makeInfoRow('<font color="#AAAAFF">L</font>  →  Frontflip  |  <font color="#AAAAFF">K</font>  →  Backflip', 22)
+makeInfoRow('<font color="#AAAAFF">J</font>  →  Airjump (if Mobile tab enabled)', 23)
 
-    makeHeader("  KEYBINDS",12)
-    makeInfoRow("RightShift  →  Toggle Menu",13)
-    makeInfoRow("L  →  Frontflip",14)
-    makeInfoRow("K  →  Backflip",15)
-    makeInfoRow("J  →  Airjump",16)
-
-    makeHeader("  ALL FEATURES",17)
-    makeInfoRow("👁 ESP  →  Item & Monster Highlights",18)
-    makeInfoRow("🟡 Platform  →  Place Parts, Follow Player",19)
-    makeInfoRow("👾 Monsters  →  Monitor & Auto Chat",20)
-    makeInfoRow("🧼 Bax  →  Ad Blocker, Freshener, Light Vision, Pollen Removal",21)
-    makeInfoRow("📱 Mobile  →  ShiftLock, Flips, TpWalk, Drag Buttons",22)
-    makeInfoRow("🧱 Collider  →  NoClip_Collider Visibility & Size",23)
-    makeInfoRow("⚙ Options  →  UI Resize, Keybinds, Screen Fix",24)
-end
+makeHeader("  ACTIONS", 30)
+makeBtn("🔄 Rejoin Server", Color3.fromRGB(40,60,140), 31, function()
+    local TeleportSvc = game:GetService("TeleportService")
+    TeleportSvc:Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+end)
+makeBtn("🚪 Leave to Menu", Color3.fromRGB(100,30,30), 32, function()
+    game:GetService("Players").LocalPlayer:Kick("Left via GScript Options.")
+end)
 
 print("[Tab_Options] Loaded.")
