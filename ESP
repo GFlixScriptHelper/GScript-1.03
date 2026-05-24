@@ -25,6 +25,13 @@ if not scrollFrame then
 end
 task.wait(0.3)
 
+-- Clear the "Coming Soon" placeholder the main loader inserted
+for _, child in ipairs(scrollFrame:GetChildren()) do
+    if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+        child:Destroy()
+    end
+end
+
 -- ============================================================
 --  HELPERS
 -- ============================================================
