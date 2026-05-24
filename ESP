@@ -1,5 +1,5 @@
--- ============================================================
---  Tab_ESP.lua  |  Items, Monsters, HolidayCollectibleItem
+============================================================
+--  Tab_ESP.lua  |  GScript v2.0 - ESP Tab
 --  Loaded by ESP_Empty.lua via loadstring
 -- ============================================================
 
@@ -7,12 +7,11 @@ local RunService   = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CoreGui      = game:GetService("CoreGui")
 local Players      = game:GetService("Players")
-local player       = Players.LocalPlayer
 
-local screenGui   = nil
-local panel       = nil
-local scrollFrame = nil
-
+-- ============================================================
+--  FIND SCROLL FRAME
+-- ============================================================
+local screenGui, panel, scrollFrame
 for _ = 1, 100 do
     screenGui   = CoreGui:FindFirstChild("ESPGui")
     panel       = screenGui and screenGui:FindFirstChild("Panel")
@@ -22,10 +21,9 @@ for _ = 1, 100 do
 end
 
 if not scrollFrame then
-    warn("[Tab_ESP] ScrollESP not found after 10s")
-else
-    task.wait(0.3)
+    warn("[Tab_ESP] ScrollESP not found after 10s"); return
 end
+task.wait(0.3)
 
 -- ============================================================
 --  HELPERS
@@ -38,20 +36,143 @@ end
 
 local function makeStroke(p, col, th, trans)
     local s = Instance.new("UIStroke")
-    s.Color        = col or Color3.fromRGB(60, 60, 90)
-    s.Thickness    = th or 1
+    s.Color        = col   or Color3.fromRGB(60, 60, 90)
+    s.Thickness    = th    or 1
     s.Transparency = trans or 0
     s.Parent = p
 end
 
--- Full-width section header
+-- ============================================================
+--  SEARCH / FILTER STATE
+-- ============================================================
+local searchText = ""
+local filterMode = 0          -- 0 = All  |  1 = Enabled only  |  2 = Disabled only
+local allCards   = {}         -- { row, label, enabled, sectionIdx }
+local sectionMeta = {}        -- [idx] = { headerFrame, gridFrame }
+
+local function refreshVisibility()
+    local sectionHasVisible = {}
+    for _, card in ipairs(allCards) do
+        local matchSearch = searchText == ""
+            or card.label:lower():find(searchText:lower(), 1, true)
+        local matchFilter = filterMode == 0
+            or (filterMode == 1 and card.enabled)
+            or (filterMode == 2 and not card.enabled)
+        card.row.Visible = matchSearch and matchFilter
+        if matchSearch and matchFilter then
+            sectionHasVisible[card.sectionIdx] = true
+        end
+    end
+    for idx, meta in ipairs(sectionMeta) do
+        local show = sectionHasVisible[idx] == true
+        meta.headerFrame.Visible = show
+        meta.gridFrame.Visible   = show
+    end
+end
+
+-- ============================================================
+--  SEARCH BAR  (LayoutOrder 0 → always at top)
+-- ============================================================
+local searchWrapper = Instance.new("Frame")
+searchWrapper.Name             = "SearchBar"
+searchWrapper.Size             = UDim2.new(1, -4, 0, 32)
+searchWrapper.BackgroundColor3 = Color3.fromRGB(18, 20, 34)
+searchWrapper.BorderSizePixel  = 0
+searchWrapper.LayoutOrder      = 0
+searchWrapper.Parent           = scrollFrame
+makeCorner(searchWrapper, 8)
+makeStroke(searchWrapper, Color3.fromRGB(60, 60, 90), 1, 0)
+
+-- 🔍 icon
+local searchIcon = Instance.new("TextLabel")
+searchIcon.Size                   = UDim2.new(0, 22, 1, 0)
+searchIcon.Position               = UDim2.new(0, 4, 0, 0)
+searchIcon.BackgroundTransparency = 1
+searchIcon.Text                   = "🔍"
+searchIcon.TextSize               = 13
+searchIcon.Font                   = Enum.Font.FredokaOne
+searchIcon.TextColor3             = Color3.fromRGB(120, 125, 160)
+searchIcon.Parent                 = searchWrapper
+
+-- Text input
+local searchBox = Instance.new("TextBox")
+searchBox.Size               = UDim2.new(1, -74, 1, -6)
+searchBox.Position           = UDim2.new(0, 28, 0, 3)
+searchBox.BackgroundTransparency = 1
+searchBox.Text               = ""
+searchBox.PlaceholderText    = "Search ESP..."
+searchBox.PlaceholderColor3  = Color3.fromRGB(70, 75, 105)
+searchBox.TextColor3         = Color3.fromRGB(210, 215, 235)
+searchBox.Font               = Enum.Font.FredokaOne
+searchBox.TextSize           = 12
+searchBox.TextXAlignment     = Enum.TextXAlignment.Left
+searchBox.ClearTextOnFocus   = false
+searchBox.Parent             = searchWrapper
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    searchText = searchBox.Text
+    refreshVisibility()
+end)
+
+-- ✕ clear button
+local clearBtn = Instance.new("TextButton")
+clearBtn.Size             = UDim2.new(0, 22, 0, 22)
+clearBtn.Position         = UDim2.new(1, -49, 0.5, -11)
+clearBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 68)
+clearBtn.BorderSizePixel  = 0
+clearBtn.Text             = "✕"
+clearBtn.TextColor3       = Color3.fromRGB(170, 170, 195)
+clearBtn.TextSize         = 11
+clearBtn.Font             = Enum.Font.FredokaOne
+clearBtn.AutoButtonColor  = false
+clearBtn.Parent           = searchWrapper
+makeCorner(clearBtn, 6)
+
+clearBtn.MouseButton1Click:Connect(function()
+    searchBox.Text = ""
+    searchText     = ""
+    refreshVisibility()
+end)
+
+-- Filter toggle button  (☰ → ✅ → ⬜)
+local FILTER_ICONS  = { "☰", "✅", "⬜" }
+local FILTER_COLORS = {
+    Color3.fromRGB(170, 170, 195),
+    Color3.fromRGB(80, 200, 120),
+    Color3.fromRGB(160, 160, 190),
+}
+
+local filterBtn = Instance.new("TextButton")
+filterBtn.Size             = UDim2.new(0, 22, 0, 22)
+filterBtn.Position         = UDim2.new(1, -24, 0.5, -11)
+filterBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 68)
+filterBtn.BorderSizePixel  = 0
+filterBtn.Text             = FILTER_ICONS[1]
+filterBtn.TextColor3       = FILTER_COLORS[1]
+filterBtn.TextSize         = 11
+filterBtn.Font             = Enum.Font.FredokaOne
+filterBtn.AutoButtonColor  = false
+filterBtn.Parent           = searchWrapper
+makeCorner(filterBtn, 6)
+
+filterBtn.MouseButton1Click:Connect(function()
+    filterMode          = (filterMode + 1) % 3
+    filterBtn.Text      = FILTER_ICONS[filterMode + 1]
+    filterBtn.TextColor3 = FILTER_COLORS[filterMode + 1]
+    refreshVisibility()
+end)
+
+-- ============================================================
+--  SECTION / GRID BUILDERS
+-- ============================================================
+local sectionCount = 0
+
 local function makeHeader(txt, order)
-    if not scrollFrame then return end
     local f = Instance.new("Frame")
-    f.Size             = UDim2.new(1, -4, 0, 24)
+    f.Size                   = UDim2.new(1, -4, 0, 24)
     f.BackgroundTransparency = 1
-    f.LayoutOrder      = order
-    f.Parent           = scrollFrame
+    f.LayoutOrder            = order
+    f.Parent                 = scrollFrame
 
     local accent = Instance.new("Frame")
     accent.Size             = UDim2.new(0, 3, 0, 14)
@@ -61,39 +182,51 @@ local function makeHeader(txt, order)
     accent.Parent           = f
     makeCorner(accent, 2)
 
-    local l = Instance.new("TextLabel")
-    l.Size           = UDim2.new(1, -14, 1, 0)
-    l.Position       = UDim2.new(0, 12, 0, 0)
-    l.BackgroundTransparency = 1
-    l.Text           = txt
-    l.TextColor3     = Color3.fromRGB(160, 170, 220)
-    l.Font           = Enum.Font.FredokaOne
-    l.TextSize       = 12
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent         = f
+    local lbl = Instance.new("TextLabel")
+    lbl.Size             = UDim2.new(1, -14, 1, 0)
+    lbl.Position         = UDim2.new(0, 12, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text             = txt
+    lbl.TextColor3       = Color3.fromRGB(160, 170, 220)
+    lbl.Font             = Enum.Font.FredokaOne
+    lbl.TextSize         = 12
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.Parent           = f
+    return f
 end
 
--- 2-column grid container parented to scrollFrame
 local function makeGridContainer(order)
     local f = Instance.new("Frame")
-    f.Size              = UDim2.new(1, -4, 0, 0)
-    f.AutomaticSize     = Enum.AutomaticSize.Y
+    f.Size                   = UDim2.new(1, -4, 0, 0)
+    f.AutomaticSize          = Enum.AutomaticSize.Y
     f.BackgroundTransparency = 1
-    f.BorderSizePixel   = 0
-    f.LayoutOrder       = order
-    f.Parent            = scrollFrame
+    f.BorderSizePixel        = 0
+    f.LayoutOrder            = order
+    f.Parent                 = scrollFrame
 
     local grid = Instance.new("UIGridLayout")
     grid.CellSize    = UDim2.new(0.5, -4, 0, 52)
     grid.CellPadding = UDim2.new(0, 4, 0, 4)
     grid.SortOrder   = Enum.SortOrder.LayoutOrder
     grid.Parent      = f
-
     return f
 end
 
--- Toggle card that fits inside the 2-col grid cell
-local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
+local function beginSection(title, baseOrder)
+    sectionCount = sectionCount + 1
+    local idx  = sectionCount
+    local hdr  = makeHeader("  " .. title, baseOrder)
+    local grid = makeGridContainer(baseOrder + 1)
+    sectionMeta[idx] = { headerFrame = hdr, gridFrame = grid }
+    return grid, idx
+end
+
+-- ============================================================
+--  TOGGLE CARD
+-- ============================================================
+local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+local function makeToggleCard(parent, labelTxt, pillColor, sectionIdx, onToggle)
     local row = Instance.new("Frame")
     row.BackgroundColor3 = Color3.fromRGB(18, 20, 34)
     row.BorderSizePixel  = 0
@@ -110,7 +243,6 @@ local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
     pill.Parent           = row
     makeCorner(pill, 3)
 
-    -- Switch anchored to RIGHT side, vertically centered
     local swBg = Instance.new("TextButton")
     swBg.Size             = UDim2.new(0, 36, 0, 18)
     swBg.Position         = UDim2.new(1, -42, 0.5, -9)
@@ -130,38 +262,40 @@ local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
     knob.Parent           = swBg
     makeCorner(knob, 6)
 
-    -- Label sits between pill and switch
     local lbl = Instance.new("TextLabel")
-    lbl.Size             = UDim2.new(1, -58, 1, 0)
-    lbl.Position         = UDim2.new(0, 16, 0, 0)
+    lbl.Size                   = UDim2.new(1, -58, 1, 0)
+    lbl.Position               = UDim2.new(0, 16, 0, 0)
     lbl.BackgroundTransparency = 1
-    lbl.Text             = labelTxt
-    lbl.TextColor3       = Color3.fromRGB(210, 215, 235)
-    lbl.Font             = Enum.Font.FredokaOne
-    lbl.TextSize         = 12
-    lbl.TextXAlignment   = Enum.TextXAlignment.Left
-    lbl.TextWrapped      = true
-    lbl.Parent           = row
+    lbl.Text                   = labelTxt
+    lbl.TextColor3             = Color3.fromRGB(210, 215, 235)
+    lbl.Font                   = Enum.Font.FredokaOne
+    lbl.TextSize               = 12
+    lbl.TextXAlignment         = Enum.TextXAlignment.Left
+    lbl.TextWrapped            = true
+    lbl.Parent                 = row
 
     local enabled   = false
-    local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local cardEntry = { row = row, label = labelTxt, enabled = false, sectionIdx = sectionIdx }
+    table.insert(allCards, cardEntry)
 
     local function refresh()
         if enabled then
-            TweenService:Create(swBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(60,160,255)}):Play()
-            TweenService:Create(knob, tweenInfo, {Position = UDim2.new(0,21,0.5,-6), BackgroundColor3 = Color3.fromRGB(255,255,255)}):Play()
-            TweenService:Create(row,  tweenInfo, {BackgroundColor3 = Color3.fromRGB(16,26,48)}):Play()
+            TweenService:Create(swBg,  tweenInfo, { BackgroundColor3 = Color3.fromRGB(60,160,255) }):Play()
+            TweenService:Create(knob,  tweenInfo, { Position = UDim2.new(0,21,0.5,-6), BackgroundColor3 = Color3.fromRGB(255,255,255) }):Play()
+            TweenService:Create(row,   tweenInfo, { BackgroundColor3 = Color3.fromRGB(16,26,48) }):Play()
         else
-            TweenService:Create(swBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(40,40,65)}):Play()
-            TweenService:Create(knob, tweenInfo, {Position = UDim2.new(0,3,0.5,-6), BackgroundColor3 = Color3.fromRGB(140,140,170)}):Play()
-            TweenService:Create(row,  tweenInfo, {BackgroundColor3 = Color3.fromRGB(18,20,34)}):Play()
+            TweenService:Create(swBg,  tweenInfo, { BackgroundColor3 = Color3.fromRGB(40,40,65) }):Play()
+            TweenService:Create(knob,  tweenInfo, { Position = UDim2.new(0,3,0.5,-6), BackgroundColor3 = Color3.fromRGB(140,140,170) }):Play()
+            TweenService:Create(row,   tweenInfo, { BackgroundColor3 = Color3.fromRGB(18,20,34) }):Play()
         end
     end
 
     swBg.MouseButton1Click:Connect(function()
-        enabled = not enabled
+        enabled          = not enabled
+        cardEntry.enabled = enabled
         refresh()
         onToggle(enabled, pill)
+        if filterMode ~= 0 then refreshVisibility() end
     end)
 
     refresh()
@@ -169,17 +303,17 @@ local function makeToggleCard(parent, labelTxt, pillColor, onToggle)
 end
 
 -- ============================================================
---  HIGHLIGHT CONTAINER
+--  HIGHLIGHT FOLDER
 -- ============================================================
 local hlFolder = workspace:FindFirstChild("ESP_Highlights")
 if not hlFolder then
-    hlFolder = Instance.new("Folder")
+    hlFolder        = Instance.new("Folder")
     hlFolder.Name   = "ESP_Highlights"
     hlFolder.Parent = workspace
 end
 
 -- ============================================================
---  STATE
+--  RUNTIME STATE
 -- ============================================================
 local currentMap      = nil
 local rainbowRegistry = {}
@@ -188,8 +322,8 @@ local holidayRegistry = {}
 local rainbowTime     = 0
 local squirmTime      = 0
 
-local RAINBOW_MONSTERS = {"Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble"}
-local SQUIRM_KEYWORDS  = {"Squirm","Bassie","Flyte","Cocoa","Eggson"}
+local RAINBOW_MONSTERS = { "Astro","Shelly","Vee","Dandy","Dyle","Sprout","Pebble" }
+local SQUIRM_KEYWORDS  = { "Squirm","Bassie","Flyte","Cocoa","Eggson" }
 
 local function isRainbow(name)
     local l = name:lower()
@@ -202,17 +336,38 @@ local function isSquirm(name)
     return false
 end
 
-local ESP_ENTRIES = {
-    { label="Bandage",         match="Bandage",               folder="Items",      color=Color3.fromRGB(0,255,255),   highlights={} },
-    { label="HealthKit",       match="HealthKit",             folder="Items",      color=Color3.fromRGB(255,255,255), highlights={} },
-    { label="ResearchCapsule", match="ResearchCapsule",       folder="Items",      color=Color3.fromRGB(255,80,200),  highlights={} },
-    { label="SpeedCandy",      match="ExtractionSpeedCandy",  folder="Items",      color=Color3.fromRGB(138,43,226),  highlights={} },
-    { label="JumperCable",     match="JumperCable",           folder="Items",      color=Color3.fromRGB(255,140,0),   highlights={} },
-    { label="Tapes",           match="Tapes",                 folder="Items",      color=Color3.fromRGB(101,67,33),   highlights={} },
-    { label="Generator",       match=nil,                     folder="Generators", color=Color3.fromRGB(160,160,160), highlights={} },
-    { label="HolidayItem",     match="HolidayCollectibleItem",folder="Items",      color=Color3.fromRGB(255,105,180), highlights={} },
-    { label="Monsters",        match=nil,                     folder="Monsters",   color=Color3.fromRGB(255,30,30),   highlights={} },
+-- ============================================================
+--  ESP ENTRY TABLES
+-- ============================================================
+-- folder defaults to "Items" if omitted
+
+local ITEM_ENTRIES = {
+    { label="Bandage",          match="Bandage",               color=Color3.fromRGB(0,255,255),   highlights={} },
+    { label="HealthKit",        match="HealthKit",             color=Color3.fromRGB(255,255,255), highlights={} },
+    { label="SpeedCandy",       match="ExtractionSpeedCandy",  color=Color3.fromRGB(138,43,226),  highlights={} },
+    { label="StealthCandy",     match="StealthCandy",          color=Color3.fromRGB(0,38,255),    highlights={} },
+    { label="JumperCable",      match="JumperCable",           color=Color3.fromRGB(255,140,0),   highlights={} },
+    { label="ProteinBar",       match="ProteinBar",            color=Color3.fromRGB(255,140,0),   highlights={} },
+    { label="Pop",              match="^Pop$",                 color=Color3.fromRGB(255,80,120),  highlights={} },
+    { label="PopBottle",        match="PopBottle",             color=Color3.fromRGB(255,80,120),  highlights={} },
+    { label="Chocolate",        match="^Chocolate$",           color=Color3.fromRGB(243,255,115), highlights={} },
+    { label="Box of Chocolate", match="BoxOfChocolate",        color=Color3.fromRGB(99,182,255),  highlights={} },
+    { label="Gumball",          match="Gumball",               color=Color3.fromRGB(255,100,200), highlights={} },
+    { label="AirHorn",          match="AirHorn",               color=Color3.fromRGB(180,180,255), highlights={} },
+    { label="SmokeBomb",        match="SmokeBomb",             color=Color3.fromRGB(160,160,160), highlights={} },
+    { label="EjectButton",      match="EjectButton",           color=Color3.fromRGB(255,60,60),   highlights={} },
+    { label="Instructions",     match="Instructions",          color=Color3.fromRGB(200,200,100), highlights={} },
+    { label="StopWatch",        match="StopWatch",             color=Color3.fromRGB(100,220,255), highlights={} },
+    { label="Generator",        match=nil, folder="Generators",color=Color3.fromRGB(160,160,160), highlights={} },
 }
+
+local CURRENCY_ENTRIES = {
+    { label="Tape",             match="Tapes",                  color=Color3.fromRGB(101,67,33),   highlights={} },
+    { label="HolidayItem",      match="HolidayCollectibleItem", color=Color3.fromRGB(255,105,180), highlights={} },
+    { label="ResearchCapsule",  match="ResearchCapsule",        color=Color3.fromRGB(255,80,200),  highlights={} },
+}
+
+local MONSTER_ENTRY = { label="Twisteds", match=nil, folder="Monsters", color=Color3.fromRGB(255,30,30), highlights={} }
 
 -- ============================================================
 --  RESEARCH LABELS
@@ -226,33 +381,32 @@ end
 
 local function addResearchLabel(obj)
     local function build(rawName)
-        local displayName = rawName:gsub("[Mm]onster$",""):gsub("^%s+",""):gsub("%s+$","")
-        if displayName == "" then displayName = rawName end
-        local existing = obj:FindFirstChild("ESP_ResearchLabel")
-        if existing then existing:Destroy() end
-        local bb = Instance.new("BillboardGui")
+        local dn = rawName:gsub("[Mm]onster$",""):gsub("^%s+",""):gsub("%s+$","")
+        if dn == "" then dn = rawName end
+        local ex = obj:FindFirstChild("ESP_ResearchLabel"); if ex then ex:Destroy() end
+        local bb  = Instance.new("BillboardGui")
         bb.Name="ESP_ResearchLabel"; bb.Size=UDim2.new(0,100,0,24)
         bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true
         bb.LightInfluence=0; bb.Adornee=obj; bb.Parent=obj
-        local lbl = Instance.new("TextLabel")
-        lbl.Size=UDim2.new(1,0,1,0); lbl.BackgroundTransparency=1
-        lbl.Text=displayName; lbl.TextColor3=Color3.fromRGB(255,80,200)
-        lbl.Font=Enum.Font.FredokaOne; lbl.TextSize=14
-        lbl.TextStrokeTransparency=0; lbl.TextStrokeColor3=Color3.fromRGB(0,0,0)
-        lbl.Parent=bb
+        local l = Instance.new("TextLabel")
+        l.Size=UDim2.new(1,0,1,0); l.BackgroundTransparency=1
+        l.Text=dn; l.TextColor3=Color3.fromRGB(255,80,200)
+        l.Font=Enum.Font.FredokaOne; l.TextSize=14
+        l.TextStrokeTransparency=0; l.TextStrokeColor3=Color3.fromRGB(0,0,0)
+        l.Parent=bb
         table.insert(researchBillboards, bb)
     end
     local prompt = obj:FindFirstChild("Prompt", true)
-    if not prompt then task.delay(1, function() if obj and obj.Parent then addResearchLabel(obj) end end); return end
-    local monsterVal = prompt:FindFirstChild("Monster")
-    if not monsterVal or not monsterVal:IsA("StringValue") then return end
-    if monsterVal.Value == "" then
-        task.delay(1.5, function()
-            if obj and obj.Parent and monsterVal.Value ~= "" then build(monsterVal.Value) end
-        end)
-    else
-        build(monsterVal.Value)
+    if not prompt then
+        task.delay(1, function() if obj and obj.Parent then addResearchLabel(obj) end end); return
     end
+    local mv = prompt:FindFirstChild("Monster")
+    if not mv or not mv:IsA("StringValue") then return end
+    if mv.Value == "" then
+        task.delay(1.5, function()
+            if obj and obj.Parent and mv.Value ~= "" then build(mv.Value) end
+        end)
+    else build(mv.Value) end
 end
 
 -- ============================================================
@@ -268,10 +422,10 @@ end
 local function getGenColor(cur, req)
     if req <= 0 then return Color3.fromRGB(220,40,40) end
     local pct = cur / req
-    if pct <= 0 then       return Color3.fromRGB(220,40,40)
-    elseif pct < 0.33 then return Color3.fromRGB(255,120,0)
-    elseif pct < 0.66 then return Color3.fromRGB(255,220,0)
-    else                   return Color3.fromRGB(40,200,80) end
+    if pct <= 0         then return Color3.fromRGB(220,40,40)
+    elseif pct < 0.33   then return Color3.fromRGB(255,120,0)
+    elseif pct < 0.66   then return Color3.fromRGB(255,220,0)
+    else                     return Color3.fromRGB(40,200,80) end
 end
 
 local function addGeneratorBillboard(obj, hl)
@@ -300,19 +454,21 @@ local function addGeneratorBillboard(obj, hl)
     local progLbl = Instance.new("TextLabel")
     progLbl.Size=UDim2.new(1,0,0,22); progLbl.BackgroundTransparency=1
     progLbl.Text=tostring(math.floor(curVal.Value)).."/"..tostring(math.floor(reqVal.Value))
-    progLbl.TextColor3=getGenColor(curVal.Value,reqVal.Value); progLbl.Font=Enum.Font.FredokaOne
-    progLbl.TextSize=17; progLbl.TextStrokeTransparency=0
-    progLbl.TextStrokeColor3=Color3.fromRGB(0,0,0); progLbl.LayoutOrder=2; progLbl.Parent=bb
+    progLbl.TextColor3=getGenColor(curVal.Value,reqVal.Value)
+    progLbl.Font=Enum.Font.FredokaOne; progLbl.TextSize=17
+    progLbl.TextStrokeTransparency=0; progLbl.TextStrokeColor3=Color3.fromRGB(0,0,0)
+    progLbl.LayoutOrder=2; progLbl.Parent=bb
 
     local nameLbl = Instance.new("TextLabel")
     nameLbl.Size=UDim2.new(1,0,0,14); nameLbl.BackgroundTransparency=1
     nameLbl.Text="⚙ "..obj.Name; nameLbl.TextColor3=Color3.fromRGB(160,160,160)
-    nameLbl.Font=Enum.Font.FredokaOne; nameLbl.TextSize=11; nameLbl.TextStrokeTransparency=0
-    nameLbl.TextStrokeColor3=Color3.fromRGB(0,0,0); nameLbl.LayoutOrder=3; nameLbl.Parent=bb
+    nameLbl.Font=Enum.Font.FredokaOne; nameLbl.TextSize=11
+    nameLbl.TextStrokeTransparency=0; nameLbl.TextStrokeColor3=Color3.fromRGB(0,0,0)
+    nameLbl.LayoutOrder=3; nameLbl.Parent=bb
 
     table.insert(generatorBillboards, bb)
 
-    local tweenInfo2 = TweenInfo.new(0.5,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+    local ti2 = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local activeTween = nil
 
     local function updateUsers()
@@ -332,23 +488,24 @@ local function addGeneratorBillboard(obj, hl)
         local col=getGenColor(cur,req)
         progLbl.Text=tostring(math.floor(cur)).."/"..tostring(math.floor(req))
         if activeTween then pcall(function() activeTween:Cancel() end) end
-        TweenService:Create(progLbl,tweenInfo2,{TextColor3=col}):Play()
+        TweenService:Create(progLbl,ti2,{TextColor3=col}):Play()
         if hl and hl.Parent then
-            activeTween=TweenService:Create(hl,tweenInfo2,{OutlineColor=col}); activeTween:Play()
+            activeTween=TweenService:Create(hl,ti2,{OutlineColor=col}); activeTween:Play()
         else activeTween=nil end
     end
 
     curVal:GetPropertyChangedSignal("Value"):Connect(function() pcall(updateProgress) end)
     reqVal:GetPropertyChangedSignal("Value"):Connect(function() pcall(updateProgress) end)
-    local pc=obj:FindFirstChild("PlayerCompletion")
+
+    local pc = obj:FindFirstChild("PlayerCompletion")
     if pc then
-        pc.ChildAdded:Connect(function() task.wait(0.05); pcall(updateUsers) end)
+        pc.ChildAdded:Connect(function()   task.wait(0.05); pcall(updateUsers) end)
         pc.ChildRemoved:Connect(function() task.wait(0.05); pcall(updateUsers) end)
     end
     obj.ChildAdded:Connect(function(child)
         if child.Name=="PlayerCompletion" then
             task.wait(0.05); pcall(updateUsers)
-            child.ChildAdded:Connect(function() task.wait(0.05); pcall(updateUsers) end)
+            child.ChildAdded:Connect(function()   task.wait(0.05); pcall(updateUsers) end)
             child.ChildRemoved:Connect(function() task.wait(0.05); pcall(updateUsers) end)
         end
     end)
@@ -356,60 +513,73 @@ local function addGeneratorBillboard(obj, hl)
 end
 
 -- ============================================================
---  ESP ENTRY LOGIC
+--  APPLY / CLEAR ENTRY
 -- ============================================================
 local function clearEntry(e)
     for _, h in ipairs(e.highlights) do
         pcall(function() h:Destroy() end)
-        for i=#rainbowRegistry,1,-1 do if rainbowRegistry[i]==h then table.remove(rainbowRegistry,i); break end end
-        for i=#squirmRegistry,1,-1  do if squirmRegistry[i]==h  then table.remove(squirmRegistry,i);  break end end
-        for i=#holidayRegistry,1,-1 do if holidayRegistry[i]==h then table.remove(holidayRegistry,i); break end end
+        for i = #rainbowRegistry, 1, -1 do if rainbowRegistry[i]==h then table.remove(rainbowRegistry,i); break end end
+        for i = #squirmRegistry,  1, -1 do if squirmRegistry[i]==h  then table.remove(squirmRegistry,i);  break end end
+        for i = #holidayRegistry, 1, -1 do if holidayRegistry[i]==h then table.remove(holidayRegistry,i); break end end
     end
-    e.highlights={}
-    if e.match=="ResearchCapsule" then clearResearchLabels() end
-    if e.folder=="Generators"     then clearGeneratorBillboards() end
+    e.highlights = {}
+    if e.match  == "ResearchCapsule"        then clearResearchLabels() end
+    if e.folder == "Generators"             then clearGeneratorBillboards() end
 end
 
 local function applyEntry(e)
     clearEntry(e)
     if not e.enabled or not currentMap then return end
-    local folder = currentMap:FindFirstChild(e.folder)
+    local folderName = e.folder or "Items"
+    local folder     = currentMap:FindFirstChild(folderName)
     if not folder then return end
+
     for _, obj in ipairs(folder:GetChildren()) do
-        local match = (e.match==nil) or obj.Name:lower():find(e.match:lower())
-        if match then
+        local matched
+        if e.match == nil then
+            matched = true
+        elseif e.match:sub(1,1) == "^" then
+            matched = obj.Name:match(e.match) ~= nil
+        else
+            matched = obj.Name:lower():find(e.match:lower()) ~= nil
+        end
+        if matched then
             local hl = Instance.new("Highlight")
             hl.FillTransparency=0.5; hl.OutlineTransparency=0
-            if e.folder=="Monsters" and isSquirm(obj.Name) then
+
+            if folderName=="Monsters" and isSquirm(obj.Name) then
                 hl.FillColor=Color3.fromRGB(255,140,0); hl.OutlineColor=Color3.fromRGB(255,140,0)
-                table.insert(squirmRegistry,hl)
-            elseif e.folder=="Monsters" and isRainbow(obj.Name) then
+                table.insert(squirmRegistry, hl)
+            elseif folderName=="Monsters" and isRainbow(obj.Name) then
                 hl.FillColor=Color3.fromRGB(255,0,0); hl.OutlineColor=Color3.fromRGB(255,0,0)
-                table.insert(rainbowRegistry,hl)
+                table.insert(rainbowRegistry, hl)
             elseif e.match=="HolidayCollectibleItem" then
                 hl.FillColor=Color3.fromRGB(255,105,180); hl.OutlineColor=Color3.fromRGB(255,105,180)
-                table.insert(holidayRegistry,hl)
-            elseif e.folder=="Generators" then
+                table.insert(holidayRegistry, hl)
+            elseif folderName=="Generators" then
                 local stats  = obj:FindFirstChild("Stats")
                 local curVal = stats and stats:FindFirstChild("CurrentAmount")
                 local reqVal = stats and stats:FindFirstChild("RequiredAmount")
-                local cur    = curVal and curVal.Value or 0
-                local req    = reqVal and reqVal.Value or 1
                 hl.FillColor=Color3.fromRGB(255,255,255); hl.FillTransparency=0.6
-                hl.OutlineColor=getGenColor(cur,req)
+                hl.OutlineColor=getGenColor(
+                    curVal and curVal.Value or 0,
+                    reqVal and reqVal.Value or 1)
             else
                 hl.FillColor=e.color; hl.OutlineColor=e.color
             end
+
             hl.Adornee=obj; hl.Parent=hlFolder
-            table.insert(e.highlights,hl)
+            table.insert(e.highlights, hl)
             if e.match=="ResearchCapsule" then addResearchLabel(obj) end
-            if e.folder=="Generators"     then addGeneratorBillboard(obj,hl) end
+            if folderName=="Generators"   then addGeneratorBillboard(obj, hl) end
         end
     end
 end
 
-local function refreshAll()
-    for _, e in ipairs(ESP_ENTRIES) do applyEntry(e) end
+local function refreshAllEntries()
+    for _, e in ipairs(ITEM_ENTRIES)     do applyEntry(e) end
+    for _, e in ipairs(CURRENCY_ENTRIES) do applyEntry(e) end
+    applyEntry(MONSTER_ENTRY)
 end
 
 -- ============================================================
@@ -421,61 +591,27 @@ local function onMapArrived(child)
     currentMap = child
     local elapsed = 0
     repeat
-        if not child.Parent or currentMap~=child then return end
-        refreshAll(); task.wait(0.5); elapsed=elapsed+0.5
+        if not child.Parent or currentMap ~= child then return end
+        refreshAllEntries(); task.wait(0.5); elapsed = elapsed + 0.5
     until elapsed >= 10
 end
 
 local function watchCurrentRoom()
-    local cr = workspace:FindFirstChild("CurrentRoom") or workspace:WaitForChild("CurrentRoom",30)
+    local cr = workspace:FindFirstChild("CurrentRoom") or workspace:WaitForChild("CurrentRoom", 30)
     if not cr then return end
     cr.ChildAdded:Connect(function(child)
-        if child:IsA("Model") then task.spawn(onMapArrived,child) end
+        if child:IsA("Model") then task.spawn(onMapArrived, child) end
     end)
     cr.ChildRemoved:Connect(function()
         currentMap = nil
-        for _, e in ipairs(ESP_ENTRIES) do clearEntry(e) end
+        for _, e in ipairs(ITEM_ENTRIES)     do clearEntry(e) end
+        for _, e in ipairs(CURRENCY_ENTRIES) do clearEntry(e) end
+        clearEntry(MONSTER_ENTRY)
     end)
     for _, child in ipairs(cr:GetChildren()) do
-        if child:IsA("Model") then task.spawn(onMapArrived,child); break end
+        if child:IsA("Model") then task.spawn(onMapArrived, child); break end
     end
 end
-
--- ============================================================
---  HEARTBEAT
--- ============================================================
-local lastCheck = 0
-RunService.Heartbeat:Connect(function(dt)
-    rainbowTime = (rainbowTime + dt*1.5) % 1
-    squirmTime  = (squirmTime  + dt*1.2) % 1
-
-    if #rainbowRegistry > 0 then
-        local col = Color3.fromHSV(rainbowTime,1,1)
-        for _,hl in ipairs(rainbowRegistry) do pcall(function() hl.FillColor=col; hl.OutlineColor=col end) end
-    end
-    if #squirmRegistry > 0 then
-        local t   = math.abs(math.sin(squirmTime*math.pi))
-        local col = Color3.fromRGB(255,140,0):Lerp(Color3.fromRGB(255,255,255),t)
-        for _,hl in ipairs(squirmRegistry) do pcall(function() hl.FillColor=col; hl.OutlineColor=col end) end
-    end
-    if #holidayRegistry > 0 then
-        local t   = math.abs(math.sin(squirmTime*math.pi))
-        local col = Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255),t)
-        for _,hl in ipairs(holidayRegistry) do pcall(function() hl.FillColor=col; hl.OutlineColor=col end) end
-    end
-
-    lastCheck = lastCheck + dt
-    if lastCheck < 2 then return end
-    lastCheck = 0
-    if not currentMap then return end
-    for _, e in ipairs(ESP_ENTRIES) do
-        if e.enabled then
-            local alive = 0
-            for _,h in ipairs(e.highlights) do if h and h.Parent then alive=alive+1 end end
-            if alive == 0 then applyEntry(e) end
-        end
-    end
-end)
 
 -- ============================================================
 --  PLAYER ESP
@@ -503,7 +639,7 @@ end
 local function getHearts(hp, maxHp)
     local full  = math.max(0, math.floor(hp))
     local empty = math.max(0, maxHp - full)
-    return string.rep("❤️",full)..string.rep("🖤",empty)
+    return string.rep("❤️", full) .. string.rep("🖤", empty)
 end
 
 local function clearPlayerESP(p)
@@ -518,12 +654,12 @@ local function applyPlayerESP(p)
     if p == localPlayer then return end
     clearPlayerESP(p)
     if not playerESPOn then return end
-    local char = p.Character; if not char then return end
-    local hum  = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
+    local char = p.Character;                       if not char then return end
+    local hum  = char:FindFirstChildOfClass("Humanoid"); if not hum  then return end
 
     local hl = Instance.new("Highlight")
     hl.FillTransparency=1; hl.OutlineTransparency=0
-    hl.OutlineColor=getHealthColor(hum.Health,hum.MaxHealth)
+    hl.OutlineColor=getHealthColor(hum.Health, hum.MaxHealth)
     hl.Adornee=char; hl.Parent=hlFolder
 
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -570,80 +706,108 @@ end
 
 local function enablePlayerESP()
     playerESPOn = true
-    for _,p in ipairs(Players:GetPlayers()) do applyPlayerESP(p) end
+    for _, p in ipairs(Players:GetPlayers()) do applyPlayerESP(p) end
     Players.PlayerAdded:Connect(function(p)
         if not playerESPOn then return end
         p.CharacterAdded:Connect(function() task.wait(0.5); applyPlayerESP(p) end)
     end)
     Players.PlayerRemoving:Connect(function(p) clearPlayerESP(p) end)
-    for _,p in ipairs(Players:GetPlayers()) do
+    for _, p in ipairs(Players:GetPlayers()) do
         p.CharacterAdded:Connect(function() task.wait(0.5); applyPlayerESP(p) end)
     end
 end
 
 local function disablePlayerESP()
     playerESPOn = false
-    for p,_ in pairs(playerData) do clearPlayerESP(p) end
+    for p, _ in pairs(playerData) do clearPlayerESP(p) end
     playerData = {}
 end
 
 -- ============================================================
---  BUILD UI  (2-column grid per section)
+--  BUILD UI
 -- ============================================================
-if scrollFrame then
 
-    -- ITEMS (entries 1-6, fills 3 rows of 2)
-    makeHeader("  ITEMS", 1)
-    local itemGrid = makeGridContainer(2)
-    for i = 1, 6 do
-        local e = ESP_ENTRIES[i]
-        makeToggleCard(itemGrid, e.label, e.color, function(on)
-            e.enabled = on; applyEntry(e)
-        end)
-    end
+-- ── ITEMS  (LayoutOrder 10)
+local itemGrid, itemIdx = beginSection("ITEMS", 10)
+for _, e in ipairs(ITEM_ENTRIES) do
+    makeToggleCard(itemGrid, e.label, e.color, itemIdx, function(on)
+        e.enabled = on; applyEntry(e)
+    end)
+end
 
-    -- MAP (entry 7)
-    makeHeader("  MAP", 10)
-    local mapGrid = makeGridContainer(11)
-    do
-        local e = ESP_ENTRIES[7]
-        makeToggleCard(mapGrid, e.label, e.color, function(on)
-            e.enabled = on; applyEntry(e)
-        end)
-    end
-
-    -- COLLECTIBLES (entry 8)
-    makeHeader("  COLLECTIBLES", 20)
-    local colGrid = makeGridContainer(21)
-    do
-        local e = ESP_ENTRIES[8]
-        local _, pill = makeToggleCard(colGrid, e.label, e.color, function(on)
-            e.enabled = on; applyEntry(e)
-        end)
+-- ── CURRENCIES  (LayoutOrder 100)
+local currGrid, currIdx = beginSection("CURRENCIES", 100)
+for _, e in ipairs(CURRENCY_ENTRIES) do
+    local _, pill = makeToggleCard(currGrid, e.label, e.color, currIdx, function(on)
+        e.enabled = on; applyEntry(e)
+    end)
+    -- Animate the HolidayItem pill
+    if e.match == "HolidayCollectibleItem" then
         RunService.Heartbeat:Connect(function()
             local t = math.abs(math.sin(squirmTime * math.pi))
             pill.BackgroundColor3 = Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255), t)
         end)
     end
+end
 
-    -- MONSTERS (entry 9)
-    makeHeader("  MONSTERS", 30)
-    local monGrid = makeGridContainer(31)
-    do
-        local e = ESP_ENTRIES[9]
-        makeToggleCard(monGrid, e.label, e.color, function(on)
-            e.enabled = on; applyEntry(e)
-        end)
+-- ── HUMANOIDS  (LayoutOrder 200)
+local humGrid, humIdx = beginSection("HUMANOIDS", 200)
+makeToggleCard(humGrid, "Players", Color3.fromRGB(40,200,80), humIdx, function(on)
+    if on then enablePlayerESP() else disablePlayerESP() end
+end)
+makeToggleCard(humGrid, "Twisteds", Color3.fromRGB(255,30,30), humIdx, function(on)
+    MONSTER_ENTRY.enabled = on; applyEntry(MONSTER_ENTRY)
+end)
+
+-- ============================================================
+--  HEARTBEAT  (rainbow / squirm / holiday anims + stale check)
+-- ============================================================
+local lastCheck = 0
+RunService.Heartbeat:Connect(function(dt)
+    rainbowTime = (rainbowTime + dt * 1.5) % 1
+    squirmTime  = (squirmTime  + dt * 1.2) % 1
+
+    if #rainbowRegistry > 0 then
+        local col = Color3.fromHSV(rainbowTime, 1, 1)
+        for _, hl in ipairs(rainbowRegistry) do
+            pcall(function() hl.FillColor=col; hl.OutlineColor=col end)
+        end
     end
 
-    -- PLAYERS
-    makeHeader("  PLAYERS", 40)
-    local plrGrid = makeGridContainer(41)
-    makeToggleCard(plrGrid, "Player ESP", Color3.fromRGB(40,200,80), function(on)
-        if on then enablePlayerESP() else disablePlayerESP() end
-    end)
+    if #squirmRegistry > 0 then
+        local t   = math.abs(math.sin(squirmTime * math.pi))
+        local col = Color3.fromRGB(255,140,0):Lerp(Color3.fromRGB(255,255,255), t)
+        for _, hl in ipairs(squirmRegistry) do
+            pcall(function() hl.FillColor=col; hl.OutlineColor=col end)
+        end
+    end
 
-end
+    if #holidayRegistry > 0 then
+        local t   = math.abs(math.sin(squirmTime * math.pi))
+        local col = Color3.fromRGB(255,105,180):Lerp(Color3.fromRGB(255,255,255), t)
+        for _, hl in ipairs(holidayRegistry) do
+            pcall(function() hl.FillColor=col; hl.OutlineColor=col end)
+        end
+    end
+
+    lastCheck = lastCheck + dt
+    if lastCheck < 2 then return end
+    lastCheck = 0
+    if not currentMap then return end
+
+    local function checkEntries(list)
+        for _, e in ipairs(list) do
+            if e.enabled then
+                local alive = 0
+                for _, h in ipairs(e.highlights) do if h and h.Parent then alive=alive+1 end end
+                if alive == 0 then applyEntry(e) end
+            end
+        end
+    end
+    checkEntries(ITEM_ENTRIES)
+    checkEntries(CURRENCY_ENTRIES)
+    checkEntries({ MONSTER_ENTRY })
+end)
 
 watchCurrentRoom()
 print("[Tab_ESP] Loaded.")
