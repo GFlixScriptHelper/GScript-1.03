@@ -1,3 +1,8 @@
+-- ============================================================
+--  Tab_ESP.lua  |  GScript v2.0 - ESP Tab
+--  Loaded by ESP_Empty.lua via loadstring
+-- ============================================================
+
 local RunService   = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CoreGui      = game:GetService("CoreGui")
@@ -337,28 +342,28 @@ end
 -- folder defaults to "Items" if omitted
 
 local ITEM_ENTRIES = {
-    { label="Bandage",          match="Bandage",               color=Color3.fromRGB(0,255,255),   highlights={} },
-    { label="HealthKit",        match="HealthKit",             color=Color3.fromRGB(255,255,255), highlights={} },
-    { label="SpeedCandy",       match="ExtractionSpeedCandy",  color=Color3.fromRGB(138,43,226),  highlights={} },
-    { label="StealthCandy",     match="StealthCandy",          color=Color3.fromRGB(0,38,255),    highlights={} },
-    { label="JumperCable",      match="JumperCable",           color=Color3.fromRGB(255,140,0),   highlights={} },
-    { label="ProteinBar",       match="ProteinBar",            color=Color3.fromRGB(255,140,0),   highlights={} },
-    { label="Pop",              match="^Pop$",                 color=Color3.fromRGB(255,80,120),  highlights={} },
-    { label="PopBottle",        match="PopBottle",             color=Color3.fromRGB(255,80,120),  highlights={} },
-    { label="Chocolate",        match="^Chocolate$",           color=Color3.fromRGB(243,255,115), highlights={} },
-    { label="Box of Chocolate", match="BoxOfChocolate",        color=Color3.fromRGB(99,182,255),  highlights={} },
-    { label="Gumball",          match="Gumball",               color=Color3.fromRGB(255,100,200), highlights={} },
-    { label="AirHorn",          match="AirHorn",               color=Color3.fromRGB(180,180,255), highlights={} },
-    { label="SmokeBomb",        match="SmokeBomb",             color=Color3.fromRGB(160,160,160), highlights={} },
-    { label="EjectButton",      match="EjectButton",           color=Color3.fromRGB(255,60,60),   highlights={} },
-    { label="Instructions",     match="Instructions",          color=Color3.fromRGB(200,200,100), highlights={} },
-    { label="StopWatch",        match="StopWatch",             color=Color3.fromRGB(100,220,255), highlights={} },
+    { label="Bandage",          match="Bandage",               color=Color3.fromRGB(0,255,255),   highlights={}, labelBBs={}, showLabel=true },
+    { label="HealthKit",        match="HealthKit",             color=Color3.fromRGB(255,255,255), highlights={}, labelBBs={}, showLabel=true },
+    { label="SpeedCandy",       match="ExtractionSpeedCandy",  color=Color3.fromRGB(138,43,226),  highlights={}, labelBBs={}, showLabel=true, displayName="Speed Candy" },
+    { label="StealthCandy",     match="StealthCandy",          color=Color3.fromRGB(0,38,255),    highlights={}, labelBBs={}, showLabel=true, displayName="Stealth Candy" },
+    { label="JumperCable",      match="JumperCable",           color=Color3.fromRGB(255,140,0),   highlights={}, labelBBs={}, showLabel=true, displayName="Jumper Cable" },
+    { label="ProteinBar",       match="ProteinBar",            color=Color3.fromRGB(255,140,0),   highlights={}, labelBBs={}, showLabel=true, displayName="Protein Bar" },
+    { label="Pop",              match="^Pop$",                 color=Color3.fromRGB(255,80,120),  highlights={}, labelBBs={}, showLabel=true },
+    { label="PopBottle",        match="PopBottle",             color=Color3.fromRGB(255,80,120),  highlights={}, labelBBs={}, showLabel=true, displayName="Pop Bottle" },
+    { label="Chocolate",        match="^Chocolate$",           color=Color3.fromRGB(243,255,115), highlights={}, labelBBs={}, showLabel=true },
+    { label="Box of Chocolate", match="BoxOfChocolate",        color=Color3.fromRGB(99,182,255),  highlights={}, labelBBs={}, showLabel=true, displayName="Box of Choc." },
+    { label="Gumball",          match="Gumball",               color=Color3.fromRGB(255,100,200), highlights={}, labelBBs={}, showLabel=true },
+    { label="AirHorn",          match="AirHorn",               color=Color3.fromRGB(180,180,255), highlights={}, labelBBs={}, showLabel=true, displayName="Air Horn" },
+    { label="SmokeBomb",        match="SmokeBomb",             color=Color3.fromRGB(190,210,230), highlights={}, labelBBs={}, showLabel=true, displayName="Smoke Bomb" },
+    { label="EjectButton",      match="EjectButton",           color=Color3.fromRGB(255,60,60),   highlights={}, labelBBs={}, showLabel=true, displayName="Eject Button" },
+    { label="Instructions",     match="Instructions",          color=Color3.fromRGB(240,230,80),  highlights={}, labelBBs={}, showLabel=true },
+    { label="StopWatch",        match="StopWatch",             color=Color3.fromRGB(100,220,255), highlights={}, labelBBs={}, showLabel=true, displayName="Stop Watch" },
     { label="Generator",        match=nil, folder="Generators",color=Color3.fromRGB(160,160,160), highlights={} },
 }
 
 local CURRENCY_ENTRIES = {
-    { label="Tape",             match="Tape",                  color=Color3.fromRGB(101,67,33),   highlights={} },
-    { label="HolidayItem",      match="HolidayCollectibleItem", color=Color3.fromRGB(255,105,180), highlights={} },
+    { label="Tape",             match="Tapes",                  color=Color3.fromRGB(205,165,90),  highlights={}, labelBBs={}, showLabel=true },
+    { label="HolidayItem",      match="HolidayCollectibleItem", color=Color3.fromRGB(255,105,180), highlights={}, labelBBs={}, showLabel=true, displayName="Holiday Item" },
     { label="ResearchCapsule",  match="ResearchCapsule",        color=Color3.fromRGB(255,80,200),  highlights={} },
 }
 
@@ -508,6 +513,35 @@ local function addGeneratorBillboard(obj, hl)
 end
 
 -- ============================================================
+--  ITEM NAME LABELS
+-- ============================================================
+local function addItemLabel(obj, text, color)
+    local existing = obj:FindFirstChild("ESP_ItemLabel")
+    if existing then existing:Destroy() end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name          = "ESP_ItemLabel"
+    bb.Size          = UDim2.new(0, 130, 0, 20)
+    bb.StudsOffset   = Vector3.new(0, 3.2, 0)
+    bb.AlwaysOnTop   = true
+    bb.LightInfluence = 0
+    bb.Adornee       = obj
+    bb.Parent        = obj
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size                   = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text                   = text
+    lbl.TextColor3             = color
+    lbl.Font                   = Enum.Font.FredokaOne
+    lbl.TextSize               = 13
+    lbl.TextStrokeTransparency = 0
+    lbl.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+    lbl.Parent                 = bb
+    return bb
+end
+
+-- ============================================================
 --  APPLY / CLEAR ENTRY
 -- ============================================================
 local function clearEntry(e)
@@ -518,6 +552,10 @@ local function clearEntry(e)
         for i = #holidayRegistry, 1, -1 do if holidayRegistry[i]==h then table.remove(holidayRegistry,i); break end end
     end
     e.highlights = {}
+    if e.labelBBs then
+        for _, bb in ipairs(e.labelBBs) do pcall(function() bb:Destroy() end) end
+        e.labelBBs = {}
+    end
     if e.match  == "ResearchCapsule"        then clearResearchLabels() end
     if e.folder == "Generators"             then clearGeneratorBillboards() end
 end
@@ -567,6 +605,11 @@ local function applyEntry(e)
             table.insert(e.highlights, hl)
             if e.match=="ResearchCapsule" then addResearchLabel(obj) end
             if folderName=="Generators"   then addGeneratorBillboard(obj, hl) end
+            if e.showLabel then
+                local text = e.displayName or e.label
+                local bb   = addItemLabel(obj, text, e.color)
+                if e.labelBBs then table.insert(e.labelBBs, bb) end
+            end
         end
     end
 end
