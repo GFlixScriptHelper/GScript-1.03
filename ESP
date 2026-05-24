@@ -357,7 +357,7 @@ local ITEM_ENTRIES = {
 }
 
 local CURRENCY_ENTRIES = {
-    { label="Tape",             match="Tapes",                  color=Color3.fromRGB(101,67,33),   highlights={} },
+    { label="Tape",             match="Tape",                  color=Color3.fromRGB(101,67,33),   highlights={} },
     { label="HolidayItem",      match="HolidayCollectibleItem", color=Color3.fromRGB(255,105,180), highlights={} },
     { label="ResearchCapsule",  match="ResearchCapsule",        color=Color3.fromRGB(255,80,200),  highlights={} },
 }
